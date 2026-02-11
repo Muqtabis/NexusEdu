@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  password    String
+  name        String
+  role        String       // "student", "teacher", "admin"
+  branch      String?
+  // Relations: A user can have many assignments and attendance records
+  assignments Assignment[]
+  attendance  Attendance[]
+  examResults ExamResult[]
+}
+
+model Assignment {
+  id            Int      @id @default(autoincrement())
+  title         String
+  subject       String
+  dueDate       DateTime
+  status        String   @default("pending")
+  submissionUrl String?
+  grade         String?  // <--- NEW: Store "A+" or "90/100"
+  feedback      String?  // <--- NEW: Teacher's comments
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @default(now())
+  status    String   // "present", "absent", "late"
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ExamResult {
+  id        Int      @id @default(autoincrement())
+  examName  String   // e.g., "Finals Physics"
+  score     Int      // e.g., 85
+  maxScore  Int      // e.g., 100
+  date      DateTime @default(now())
+  studentId Int
+  student   User     @relation(fields: [studentId], references: [id])
+}
