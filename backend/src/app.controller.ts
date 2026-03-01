@@ -49,8 +49,9 @@ export class AppController {
   }
 
   // 6. SAVE ATTENDANCE
-  @Post('attendance')
-  async markAttendance(@Body() body: { studentId: number; status: string; date: string }) {
+ @Post('attendance')
+  async markAttendance(@Body() body: { studentId: number; status: string; date: string; teacherId: number }) {
+    // Note: We now expect 'teacherId' in the body
     return await this.userService.saveAttendance(body);
   }
 
@@ -123,5 +124,52 @@ export class AppController {
   @Get('admin/results')
   async getAllExamResults() {
     return await this.userService.getAllExamResults();
+  }
+  // 17. ASSIGN CLASS TEACHER
+  @Post('admin/assign-class-teacher')
+  async assignClassTeacher(@Body() body: { teacherId: number; className: string }) {
+    return await this.userService.assignClassTeacher(body.teacherId, body.className);
+  }
+  // 18. ASSIGN SUBJECT TO TEACHER
+  @Post('admin/assign-subject')
+  async assignSubject(@Body() body: { teacherId: number; className: string; subject: string }) {
+    return await this.userService.assignSubject(body.teacherId, body.className, body.subject);
+  }
+// 19. REMOVE SUBJECT FROM TEACHER
+  @Delete('admin/subject/:id')
+  async removeSubject(@Param('id') id: string) {
+    return await this.userService.removeSubject(Number(id));
+  }
+  // 20. GET MY STUDENTS ROUTE
+  @Get('teacher/:id/students')
+  async getMyStudents(@Param('id') id: string) {
+    return await this.userService.getTeacherStudents(Number(id));
+  }
+  // 21. TIMETABLE ROUTES
+
+  @Post('admin/timetable')
+  async addTimetableSlot(@Body() body: any) {
+    return await this.userService.addTimetableSlot(body);
+  }
+
+  @Get('timetable/class/:className')
+  async getClassTimetable(@Param('className') className: string) {
+    return await this.userService.getClassTimetable(className);
+  }
+
+  @Get('timetable/teacher/:id')
+  async getTeacherTimetable(@Param('id') id: string) {
+    return await this.userService.getTeacherTimetable(Number(id));
+  }
+
+  //22. EVENT ROUTES 
+  @Post('admin/event')
+  async addSchoolEvent(@Body() body: any) {
+    return await this.userService.addSchoolEvent(body);
+  }
+
+  @Get('events')
+  async getSchoolEvents() {
+    return await this.userService.getSchoolEvents();
   }
 }

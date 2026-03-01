@@ -8,16 +8,19 @@ datasource db {
 }
 
 model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  password    String
-  name        String
-  role        String       // "student", "teacher", "admin"
-  branch      String?
-  // Relations: A user can have many assignments and attendance records
-  assignments Assignment[]
-  attendance  Attendance[]
-  examResults ExamResult[]
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  password           String
+  name               String
+  role               String
+  branch             String?
+  rollNumber         String?
+  classTeacherOf     String?             // Class Teacher Role (One class per teacher)
+  subjectAllocations SubjectAllocation[] // Subject Teacher Role (Many classes/subjects)
+  attendance         Attendance[]
+  assignments        Assignment[]
+  examResults        ExamResult[]
+  timetable          Timetable[]
 }
 
 model Assignment {
@@ -49,4 +52,31 @@ model ExamResult {
   date      DateTime @default(now())
   studentId Int
   student   User     @relation(fields: [studentId], references: [id])
+}
+
+model SubjectAllocation {
+  id        Int    @id @default(autoincrement())
+  subject   String // e.g. "Mathematics"
+  className String // e.g. "Class 5-A"
+  teacherId Int
+  teacher   User   @relation(fields: [teacherId], references: [id])
+}
+
+model Timetable {
+  id        Int      @id @default(autoincrement())
+  className String   // e.g. "Class 10-A"
+  day       String   // e.g. "Monday", "Tuesday"
+  startTime String   // e.g. "09:00"
+  endTime   String   // e.g. "10:00"
+  subject   String   // e.g. "Physics"
+  teacherId Int?
+  teacher   User?    @relation(fields: [teacherId], references: [id])
+}
+
+model SchoolEvent {
+  id          Int      @id @default(autoincrement())
+  title       String   // e.g. "Annual Sports Day"
+  date        DateTime // e.g. 2026-03-15
+  description String?  // e.g. "Wear sports uniform"
+  type        String   // e.g. "holiday", "exam", "event"
 }

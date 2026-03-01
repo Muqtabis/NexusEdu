@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, BookOpen, Layers } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, BookOpen, Layers, Hash } from 'lucide-react';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -9,7 +9,8 @@ const Signup = () => {
     email: '', 
     password: '', 
     role: 'student',
-    branch: 'Class 10-A', // Default selection
+    branch: 'Class 10-A', 
+    rollNumber: '', // <--- NEW FIELD
     secretCode: '' 
   });
   const [error, setError] = useState('');
@@ -33,7 +34,7 @@ const Signup = () => {
       });
 
       if (res.ok) {
-        alert("Account Created! Please Login.");
+        alert("Account Created Successfully! Please Login.");
         navigate('/');
       } else {
         const data = await res.json();
@@ -59,25 +60,21 @@ const Signup = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Name */}
           <div className="relative">
             <User className="absolute left-3 top-3 text-slate-400" size={20} />
             <input name="name" type="text" placeholder="Full Name" required className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" onChange={handleChange} />
           </div>
 
-          {/* Email */}
           <div className="relative">
             <Mail className="absolute left-3 top-3 text-slate-400" size={20} />
             <input name="email" type="email" placeholder="Email Address" required className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" onChange={handleChange} />
           </div>
 
-          {/* Password */}
           <div className="relative">
             <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
             <input name="password" type="password" placeholder="Password" required className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" onChange={handleChange} />
           </div>
 
-          {/* Role Selection */}
           <div className="relative">
             <BookOpen className="absolute left-3 top-3 text-slate-400" size={20} />
             <select name="role" className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none" onChange={handleChange} value={formData.role}>
@@ -87,20 +84,37 @@ const Signup = () => {
             </select>
           </div>
 
-          {/* BRANCH SELECTION (Only for Students) */}
+          {/* STUDENT SPECIFIC FIELDS */}
           {formData.role === 'student' && (
-            <div className="relative animate-in fade-in slide-in-from-top-2">
-              <Layers className="absolute left-3 top-3 text-slate-400" size={20} />
-              <select name="branch" className="w-full pl-10 p-3 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none" onChange={handleChange} value={formData.branch}>
-                <option value="Class 10-A">Class 10-A (Science)</option>
-                <option value="Class 10-B">Class 10-B (Commerce)</option>
-                <option value="Class 11-A">Class 11-A (Physics)</option>
-                <option value="Class 12-A">Class 12-A (Engineering)</option>
-              </select>
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              
+              {/* Branch Selection */}
+              <div className="relative">
+                <Layers className="absolute left-3 top-3 text-slate-400" size={20} />
+                <select name="branch" className="w-full pl-10 p-3 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none appearance-none" onChange={handleChange} value={formData.branch}>
+                  <option value="Class 10-A">Class 10-A (Science)</option>
+                  <option value="Class 10-B">Class 10-B (Commerce)</option>
+                  <option value="Class 11-A">Class 11-A (Physics)</option>
+                  <option value="Class 12-A">Class 12-A (Engineering)</option>
+                </select>
+              </div>
+
+              {/* Roll Number Input */}
+              <div className="relative">
+                <Hash className="absolute left-3 top-3 text-slate-400" size={20} />
+                <input 
+                  name="rollNumber" 
+                  type="text" 
+                  placeholder="Roll Number (e.g. 12)" 
+                  required 
+                  className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  onChange={handleChange} 
+                />
+              </div>
+
             </div>
           )}
 
-          {/* Secret Code (Only for Admin) */}
           {formData.role === 'admin' && (
             <input name="secretCode" type="password" placeholder="Admin Secret Code" className="w-full p-3 bg-rose-50 border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none animate-in fade-in" onChange={handleChange} />
           )}

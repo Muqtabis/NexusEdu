@@ -1,62 +1,71 @@
 import { useEffect, useState } from 'react';
-import { Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, Star, ExternalLink, Trophy } from 'lucide-react';
+import { Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, Star, ExternalLink, Trophy, Filter, Lock, Send } from 'lucide-react';
 
-interface Assignment {
-  id: number;
-  title: string;
-  status: string;
-  submissionUrl?: string;
-  grade?: string;
-  feedback?: string;
-}
-
-interface Student {
-  id: number;
-  name: string;
-  email: string;
-  status: 'present' | 'absent' | 'late';
-  assignments: Assignment[];
-}
+interface Assignment { id: number; title: string; status: string; submissionUrl?: string; grade?: string; feedback?: string; }
+interface Student { id: number; name: string; email: string; branch?: string; rollNumber?: string; status: 'present' | 'absent' | 'late'; assignments: Assignment[]; }
+interface DashboardOption { label: string; className: string; subject: string; role: "class_teacher" | "subject_teacher"; }
 
 const TeacherDashboard = () => {
-  const [students, setStudents] = useState<Student[]>([]);
+  // Data State
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [dashboardOptions, setDashboardOptions] = useState<DashboardOption[]>([]);
+  const [selectedOption, setSelectedOption] = useState<DashboardOption | null>(null);
+  
+  // UI State
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'attendance' | 'assignments' | 'gradebook'>('attendance');
 
   // Grading Modal State
   const [selectedWork, setSelectedWork] = useState<{student: Student, work: Assignment} | null>(null);
   const [grade, setGrade] = useState('');
   const [feedback, setFeedback] = useState('');
 
-  // Bulk Gradebook State
-  const [showGradebook, setShowGradebook] = useState(false);
-  const [examName, setExamName] = useState('');
+  // Smart Gradebook State
+  const [examCategory, setExamCategory] = useState('Class Test');
+  const [examTitle, setExamTitle] = useState('');
   const [maxScore, setMaxScore] = useState('100');
   const [marks, setMarks] = useState<Record<number, string>>({});
 
-  const fetchClass = async () => {
+  const teacherId = parseInt(localStorage.getItem('userId') || '0');
+
+  const fetchMyData = async () => {
     try {
-      const res = await fetch('http://localhost:4000/teacher/class');
+      const res = await fetch(`http://localhost:4000/teacher/${teacherId}/students`);
       const data = await res.json();
-      const formatted = data.map((s: any) => ({
-        ...s,
-        status: 'present',
-        assignments: s.assignments || [] 
-      }));
-      setStudents(formatted);
-    } catch (error) {
-      console.error("Failed to fetch class list:", error);
-    } finally {
-      setLoading(false);
+      
+      if (data.students) {
+        const formatted = data.students.map((s: any) => ({ ...s, status: 'present', assignments: s.assignments || [] }));
+        setAllStudents(formatted);
+        setDashboardOptions(data.dashboardOptions);
+        if (data.dashboardOptions.length > 0) setSelectedOption(data.dashboardOptions[0]);
+      }
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
+  useEffect(() => { fetchMyData(); }, []);
+
   useEffect(() => {
-    fetchClass();
-  }, []);
+    if (selectedOption) {
+      setFilteredStudents(allStudents.filter(s => s.branch === selectedOption.className));
+    } else {
+      setFilteredStudents([]);
+    }
+  }, [selectedOption, allStudents]);
+
+  // --- ACTIONS ---
 
   const toggleStatus = (id: number) => {
-    setStudents(prev => prev.map(s => {
+    if (selectedOption?.role !== "class_teacher") {
+      alert("🔒 Access Denied: Only the Class Teacher can mark attendance.");
+      return;
+    }
+    setFilteredStudents(prev => prev.map(s => {
       if (s.id !== id) return s;
       if (s.status === 'present') return { ...s, status: 'absent' };
       if (s.status === 'absent') return { ...s, status: 'late' };
@@ -68,190 +77,331 @@ const TeacherDashboard = () => {
     setSaving(true);
     try {
       const date = new Date().toISOString();
-      for (const student of students) {
-        await fetch('http://localhost:4000/attendance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: student.id, status: student.status, date: date })
+      for (const student of filteredStudents) {
+        await fetch('http://localhost:4000/attendance', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ studentId: student.id, status: student.status, date: date, teacherId: teacherId }) 
         });
       }
-      alert('Attendance Saved Successfully! ✅');
-    } catch (err) { alert('Failed to save attendance.'); } 
-    finally { setSaving(false); }
+      alert(`Attendance Saved for ${selectedOption?.className}! ✅`);
+    } catch (err) { 
+      alert('Error saving attendance.'); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   const assignHomework = async () => {
-    const title = prompt("Enter Assignment Title (e.g., Chapter 5 Essay):");
+    if (!selectedOption) return;
+    const defaultSubject = selectedOption.subject !== "General" ? selectedOption.subject : "";
+    const title = prompt(`Assign Homework to ${selectedOption.className}\nEnter Title:`);
     if (!title) return;
-    const subject = prompt("Enter Subject (e.g., History):");
+    const subject = prompt("Enter Subject:", defaultSubject);
     if (!subject) return;
 
     try {
-      for (const student of students) {
-        await fetch('http://localhost:4000/assignment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, subject, dueDate: new Date().toISOString(), studentId: student.id })
+      for (const student of filteredStudents) {
+        await fetch('http://localhost:4000/assignment', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ title, subject, dueDate: new Date().toISOString(), studentId: student.id }) 
         });
       }
-      alert(`Assignment "${title}" sent to class! 📚`);
-      fetchClass();
-    } catch (err) { alert('Failed to send assignment.'); }
+      alert(`Assignment sent to ${selectedOption.className}! 📚`);
+      fetchMyData();
+    } catch (err) { 
+      alert('Failed to send assignment.'); 
+    }
   };
 
-  // --- BULK PUBLISH LOGIC ---
   const handleBulkPublish = async () => {
-    if (!examName) { alert("Please enter an Exam Name!"); return; }
+    if (!examTitle) return alert("Please enter an Exam Title (e.g., Term 1)!");
+
+    // Creates the structured tag: "Physics - Formative Assessment | Term 1"
+    const subjectPrefix = selectedOption?.subject && selectedOption.subject !== "General" ? `${selectedOption.subject} - ` : "General - ";
+    const finalExamName = `${subjectPrefix}${examCategory} | ${examTitle}`;
 
     const resultsPayload = Object.entries(marks).map(([studentId, score]) => ({
-      studentId: parseInt(studentId),
-      examName: examName,
-      score: parseInt(score),
-      maxScore: parseInt(maxScore)
+        studentId: parseInt(studentId), 
+        examName: finalExamName, 
+        score: parseInt(score), 
+        maxScore: parseInt(maxScore)
     }));
 
-    if (resultsPayload.length === 0) { alert("Please enter marks for at least one student."); return; }
+    if (resultsPayload.length === 0) return alert("Please enter marks for at least one student.");
 
     try {
-      await fetch('http://localhost:4000/exam/publish-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ results: resultsPayload })
-      });
-      alert(`Successfully published results for ${resultsPayload.length} students! 🏆`);
-      setShowGradebook(false);
-      setMarks({});
-      setExamName('');
-    } catch (err) {
-      alert("Failed to publish results.");
+        await fetch('http://localhost:4000/exam/publish-bulk', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ results: resultsPayload })
+        });
+        alert(`Results published for ${examTitle}! 🏆`);
+        setMarks({}); 
+        setExamTitle('');
+    } catch (err) { 
+      alert("Failed to publish results."); 
     }
   };
 
   const handleGradeSubmit = async () => {
     if (!selectedWork) return;
     try {
-      await fetch(`http://localhost:4000/assignment/${selectedWork.work.id}/grade`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grade, feedback })
+      await fetch(`http://localhost:4000/assignment/${selectedWork.work.id}/grade`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ grade, feedback }) 
       });
       alert("Graded Successfully! 🌟");
-      setSelectedWork(null);
-      setGrade('');
-      setFeedback('');
-      fetchClass();
-    } catch (err) { alert("Failed to save grade."); }
+      setSelectedWork(null); 
+      setGrade(''); 
+      setFeedback(''); 
+      fetchMyData();
+    } catch (err) { 
+      alert("Failed to save grade."); 
+    }
   };
 
-  if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin inline" /> Loading...</div>;
+  if (loading) return <div className="p-10 text-center text-slate-500"><Loader2 className="animate-spin inline mr-2" /> Loading Dashboard...</div>;
 
   return (
-    <div className="flex flex-col gap-6 relative">
-      <div className="p-6 rounded-[1.5rem] bg-white border border-slate-200 shadow-soft relative overflow-hidden">
-        <div className="relative z-10">
-          <h1 className="text-2xl font-semibold text-slate-800">Class 12-A</h1>
-          <p className="text-slate-500 text-sm">Teacher Dashboard • Term 2</p>
+    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-12 pt-4">
+      
+      {/* 1. HEADER */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
+        <h1 className="text-3xl font-normal text-slate-800 tracking-tight">Teacher Dashboard</h1>
+        <p className="text-slate-500 text-sm mt-2 mb-6">
+          Context: <span className="font-bold text-indigo-600">{selectedOption?.label || "No Classes Assigned"}</span>
+        </p>
+        
+        <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-4 py-3 w-full max-w-sm">
+           <Filter size={16} className="text-slate-400"/>
+           <select 
+             className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
+             onChange={(e) => {
+               const selected = dashboardOptions.find(opt => opt.label === e.target.value);
+               setSelectedOption(selected || null);
+             }}
+             value={selectedOption?.label || ""}
+           >
+             {dashboardOptions.length === 0 && <option>No Classes Assigned</option>}
+             {dashboardOptions.map(opt => <option key={opt.label} value={opt.label}>{opt.label}</option>)}
+           </select>
         </div>
-        <div className="absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-indigo-50 to-transparent opacity-50" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 className="font-semibold text-slate-700 flex items-center gap-2"><Users size={18} /> Students ({students.length})</h3>
-            <button onClick={saveAttendance} disabled={saving} className="flex items-center gap-2 text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-              {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {saving ? 'Saving...' : 'Save Attendance'}
-            </button>
+      {/* 2. THE HORIZONTAL TABS */}
+      <div className="flex gap-4 border-b border-slate-200 overflow-x-auto hide-scrollbar px-2">
+        <button 
+          onClick={() => setActiveTab('attendance')} 
+          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'attendance' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Daily Attendance
+        </button>
+        <button 
+          onClick={() => setActiveTab('assignments')} 
+          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'assignments' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Manage Assignments
+        </button>
+        <button 
+          onClick={() => setActiveTab('gradebook')} 
+          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'gradebook' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Class Gradebook
+        </button>
+      </div>
+
+      {/* --- TAB 1: ATTENDANCE CONTENT --- */}
+      {activeTab === 'attendance' && (
+        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 className="font-medium text-slate-700 flex items-center gap-2 text-[15px]">
+              <Users size={18} className="text-slate-500" /> Attendance Register
+            </h3>
+            {selectedOption?.role === "class_teacher" ? (
+              <button onClick={saveAttendance} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm">
+                {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} {saving ? 'Saving...' : 'Save Attendance'}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-xs font-bold bg-slate-200 text-slate-500 px-4 py-2 rounded-xl cursor-not-allowed">
+                <Lock size={14} /> Read Only
+              </div>
+            )}
           </div>
-          <div className="divide-y divide-slate-100">
-            {students.map((student) => (
-              <div key={student.id} className="p-4 hover:bg-slate-50 transition-colors group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600 border border-slate-200">{student.name.charAt(0)}</div>
-                    <div><span className="font-medium text-slate-800 block">{student.name}</span><span className="text-[10px] text-slate-400 block">{student.email}</span></div>
+          <div className="divide-y divide-slate-50">
+            {filteredStudents.length === 0 ? ( 
+              <div className="p-10 text-center text-slate-400">No students found.</div> 
+            ) : (
+              filteredStudents.map((student, index) => (
+                <div key={student.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm shadow-sm">{student.rollNumber || index + 1}</div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-[15px]">{student.name}</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">{student.email}</p>
+                    </div>
                   </div>
-                  <div className="cursor-pointer" onClick={() => toggleStatus(student.id)}>
-                    <span className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 w-24 justify-center ${student.status === 'present' ? 'bg-emerald-100 text-emerald-700' : student.status === 'absent' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {student.status === 'present' && <Check size={12} />}{student.status === 'absent' && <X size={12} />}{student.status === 'late' && <Clock size={12} />}{student.status.toUpperCase()}
+                  <div className={`cursor-pointer ${selectedOption?.role !== "class_teacher" ? 'opacity-50 pointer-events-none' : ''}`} onClick={() => toggleStatus(student.id)}>
+                    <span className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 w-28 justify-center uppercase
+                      ${student.status === 'present' ? 'bg-[#dcfce7] text-[#166534]' : student.status === 'absent' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {student.status === 'present' && <Check size={14} />} 
+                      {student.status === 'absent' && <X size={14} />} 
+                      {student.status === 'late' && <Clock size={14} />} 
+                      {student.status}
                     </span>
                   </div>
                 </div>
-                {student.assignments.length > 0 && (
-                  <div className="ml-11 space-y-2 border-l-2 border-slate-100 pl-3">
-                    {student.assignments.map(work => (
-                      <div key={work.id} className="flex items-center justify-between text-xs bg-white p-2 rounded border border-slate-100 shadow-sm">
-                        <span className="text-slate-600 font-medium truncate max-w-[150px]">{work.title}</span>
-                        {work.status === 'graded' ? ( <div className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded"><Star size={10} fill="currentColor" /> {work.grade}</div> ) : work.status === 'submitted' ? ( <button onClick={() => setSelectedWork({ student, work })} className="text-blue-600 font-bold hover:underline flex items-center gap-1 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors"><FileText size={12} /> Grade Now</button> ) : ( <span className="text-slate-400 italic bg-slate-50 px-2 py-1 rounded">Pending...</span> )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex flex-col gap-4">
-           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-             <h3 className="font-semibold text-slate-800 mb-3 text-sm">Quick Actions</h3>
-             <button onClick={assignHomework} className="w-full p-3 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center gap-2 font-medium hover:bg-indigo-100 transition-colors text-sm mb-3">
-               <PlusCircle size={16} /> New Assignment
-             </button>
-             {/* GRADEBOOK BUTTON */}
-             <button onClick={() => setShowGradebook(true)} className="w-full p-3 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center gap-2 font-medium hover:bg-amber-100 transition-colors text-sm">
-               <Trophy size={16} /> Open Gradebook
-             </button>
-           </div>
-        </div>
-      </div>
-
-      {/* --- GRADEBOOK MODAL --- */}
-      {showGradebook && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 relative flex flex-col max-h-[90vh]">
-            <button onClick={() => setShowGradebook(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"><X size={20} /></button>
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><Trophy className="text-amber-500" /> Class Gradebook</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <div><label className="block text-xs font-bold text-slate-500 mb-1">Exam Name</label><input className="w-full p-2 border border-slate-200 rounded-lg bg-white" placeholder="e.g. Final Mathematics" value={examName} onChange={(e) => setExamName(e.target.value)} /></div>
-              <div><label className="block text-xs font-bold text-slate-500 mb-1">Max Score</label><input className="w-full p-2 border border-slate-200 rounded-lg bg-white" type="number" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} /></div>
-            </div>
-            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl mb-4">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 font-bold sticky top-0">
-                  <tr><th className="p-3 border-b">Student Name</th><th className="p-3 border-b w-32">Marks Obtained</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {students.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-medium text-slate-700">{student.name}</td>
-                      <td className="p-3"><input type="number" className="w-full p-2 border border-slate-200 rounded-md focus:border-indigo-500 outline-none" placeholder="0" value={marks[student.id] || ''} onChange={(e) => setMarks({ ...marks, [student.id]: e.target.value })} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button onClick={handleBulkPublish} className="w-full p-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200">Publish All Results</button>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* Assignment Grading Modal */}
+      {/* --- TAB 2: ASSIGNMENTS CONTENT --- */}
+      {activeTab === 'assignments' && (
+        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 className="font-medium text-slate-700 flex items-center gap-2 text-[15px]">
+              <FileText size={18} className="text-slate-500" /> Student Submissions
+            </h3>
+            <button onClick={assignHomework} className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
+              <PlusCircle size={16} /> New Assignment
+            </button>
+          </div>
+          <div className="p-6 flex flex-col gap-6">
+            {filteredStudents.length === 0 ? ( 
+              <div className="text-center text-slate-400">No students found.</div> 
+            ) : (
+              filteredStudents.map((student) => (
+                student.assignments.length > 0 && (
+                  <div key={student.id} className="border border-slate-100 rounded-2xl p-5 shadow-sm">
+                    <h4 className="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-50">{student.name}'s Work</h4>
+                    <div className="space-y-3">
+                      {student.assignments.map(work => (
+                        <div key={work.id} className="flex flex-col md:flex-row md:justify-between md:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-3">
+                          <span className="text-sm font-medium text-slate-700 truncate max-w-[300px]">{work.title}</span>
+                          {work.status === 'graded' ? (
+                            <div className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-100 px-3 py-1.5 rounded-lg text-xs self-start md:self-auto"><Star size={12} fill="currentColor" /> {work.grade}</div>
+                          ) : work.status === 'submitted' ? (
+                            <button onClick={() => setSelectedWork({ student, work })} className="text-indigo-600 font-bold bg-indigo-100 px-4 py-2 rounded-lg text-xs hover:bg-indigo-200 transition-colors self-start md:self-auto">Grade Now</button>
+                          ) : (
+                            <span className="text-slate-400 italic text-xs font-medium px-3 py-1.5 bg-white border border-slate-200 rounded-lg self-start md:self-auto">Pending...</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- TAB 3: GRADEBOOK CONTENT --- */}
+      {activeTab === 'gradebook' && (
+        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+          <div className="p-6 border-b border-slate-100 bg-amber-50/30">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><Trophy size={20} className="text-amber-500" /> Exam Publishing</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Exam Type</label>
+                <select 
+                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold text-slate-700 cursor-pointer" 
+                  value={examCategory} 
+                  onChange={(e) => setExamCategory(e.target.value)}
+                >
+                  <option value="Class Test">Class Test</option>
+                  <option value="Formative Assessment">Formative Assessment (FA)</option>
+                  <option value="Summative Assessment">Summative Assessment (SA)</option>
+                  <option value="Final Examination">Final Examination</option>
+                </select>
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Term / Title</label>
+                <input 
+                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold" 
+                  placeholder="e.g. Unit 1, Midterm" 
+                  value={examTitle} 
+                  onChange={(e) => setExamTitle(e.target.value)} 
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Max Score</label>
+                <input 
+                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold" 
+                  type="number" 
+                  value={maxScore} 
+                  onChange={(e) => setMaxScore(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 text-[11px] font-bold text-slate-400 bg-white inline-block px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+               Database Tag: <span className="text-indigo-600">{selectedOption?.subject !== "General" ? selectedOption?.subject : "General"} - {examCategory} | {examTitle || '[Title]'}</span>
+            </div>
+          </div>
+
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+              <tr>
+                <th className="p-4 pl-6">Roll No</th>
+                <th className="p-4">Student Name</th>
+                <th className="p-4 pr-6">Marks Obtained</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredStudents.length === 0 ? ( 
+                <tr><td colSpan={3} className="p-8 text-center text-slate-400">No students found.</td></tr> 
+              ) : (
+                filteredStudents.map((student) => (
+                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 pl-6 font-medium text-slate-500">{student.rollNumber || '-'}</td>
+                    <td className="p-4 font-bold text-slate-700 text-[15px]">{student.name}</td>
+                    <td className="p-4 pr-6">
+                      <input 
+                        type="number" 
+                        className="w-full max-w-[150px] p-2.5 border border-slate-200 rounded-lg focus:border-amber-400 outline-none font-black text-indigo-700 text-lg" 
+                        placeholder="0" 
+                        value={marks[student.id] || ''} 
+                        onChange={(e) => setMarks({ ...marks, [student.id]: e.target.value })} 
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <div className="p-6 bg-slate-50 border-t border-slate-100">
+            <button onClick={handleBulkPublish} className="w-full p-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 shadow-lg shadow-slate-200 transition-all flex justify-center items-center gap-2">
+              <Send size={18} /> Publish to Student Report Cards
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- GRADING MODAL --- */}
       {selectedWork && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
-            <button onClick={() => setSelectedWork(null)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"><X size={20} /></button>
-            <h2 className="text-xl font-bold mb-1 text-slate-800">Grade {selectedWork.student.name}'s Work</h2>
-            <p className="text-slate-500 text-sm mb-4">{selectedWork.work.title}</p>
-            {selectedWork.work.submissionUrl ? ( <a href={selectedWork.work.submissionUrl} target="_blank" rel="noreferrer" className="block w-full p-3 bg-blue-50 text-blue-600 rounded-lg text-center font-bold mb-4 hover:bg-blue-100 border border-blue-100 flex items-center justify-center gap-2 transition-colors"><ExternalLink size={16} /> View Submitted File</a> ) : ( <div className="w-full p-3 bg-amber-50 text-amber-600 rounded-lg text-center text-xs font-bold mb-4 border border-amber-100 border-dashed">⚠️ No file attached</div> )}
-            <label className="block text-xs font-bold text-slate-500 mb-1">Grade / Score</label>
-            <input className="w-full p-3 border border-slate-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g., 95/100 or A+" value={grade} onChange={(e) => setGrade(e.target.value)} />
-            <label className="block text-xs font-bold text-slate-500 mb-1">Feedback</label>
-            <textarea className="w-full p-3 border border-slate-200 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500" rows={3} placeholder="Good work..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-            <div className="flex gap-2">
-              <button onClick={() => setSelectedWork(null)} className="flex-1 p-3 text-slate-500 font-bold hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
-              <button onClick={handleGradeSubmit} className="flex-1 p-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Submit Grade</button>
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 relative">
+            <button onClick={() => setSelectedWork(null)} className="absolute right-6 top-6 text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            <h2 className="text-xl font-bold mb-1 text-slate-800">Grade Work</h2>
+            <p className="text-slate-500 text-sm mb-6">{selectedWork.student.name} • {selectedWork.work.title}</p>
+            {selectedWork.work.submissionUrl ? ( 
+              <a href={selectedWork.work.submissionUrl} target="_blank" rel="noreferrer" className="block w-full p-3 bg-indigo-50 text-indigo-600 rounded-xl text-center font-bold mb-6 hover:bg-indigo-100 border border-indigo-100 flex items-center justify-center gap-2 transition-colors"><ExternalLink size={16} /> View Submitted File</a> 
+            ) : ( 
+              <div className="w-full p-3 bg-amber-50 text-amber-600 rounded-xl text-center text-xs font-bold mb-6 border border-amber-100 border-dashed">⚠️ No file attached</div> 
+            )}
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Score</label>
+            <input className="w-full p-3.5 border border-slate-200 rounded-xl mb-4 focus:outline-none focus:border-indigo-500 bg-slate-50" placeholder="e.g., 95/100" value={grade} onChange={(e) => setGrade(e.target.value)} />
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Feedback</label>
+            <textarea className="w-full p-3.5 border border-slate-200 rounded-xl mb-8 focus:outline-none focus:border-indigo-500 bg-slate-50" rows={3} placeholder="Great job..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+            <div className="flex gap-3">
+              <button onClick={() => setSelectedWork(null)} className="flex-1 p-3.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+              <button onClick={handleGradeSubmit} className="flex-1 p-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Submit Grade</button>
             </div>
           </div>
         </div>
