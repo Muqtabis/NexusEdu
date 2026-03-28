@@ -20,17 +20,16 @@ export class UserService {
       where: { role: 'student' },
       select: { 
         id: true, name: true, email: true, assignments: true, 
-        branch: true, rollNumber: true // <--- Add these
+        branch: true, rollNumber: true 
       }
     });
   }
 
- // 3. CREATE NEW USER (Updated for Roll No & Uniqueness)
+  // 3. CREATE NEW USER
   async createUser(data: any) {
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new Error('User already exists');
 
-    // CHECK ROLL NUMBER UNIQUENESS (If Student)
     if (data.role === 'student' && data.branch && data.rollNumber) {
       const duplicate = await prisma.user.findFirst({
         where: { 
@@ -49,8 +48,8 @@ export class UserService {
         password: data.password,
         role: data.role,
         branch: data.branch || "General",
-        rollNumber: data.rollNumber,         // <--- Save Roll No
-        classTeacherOf: data.classTeacherOf, // <--- Save Class Teacher assignment
+        rollNumber: data.rollNumber,         
+        classTeacherOf: data.classTeacherOf, 
         assignments: data.role === 'student' ? {
           create: [{ title: 'Welcome Assignment', subject: 'General', dueDate: new Date() }]
         } : undefined
@@ -68,19 +67,14 @@ export class UserService {
     return null;
   }
 
-  // 5. SAVE ATTENDANCE (Strict Class Teacher Check) 🛡️
+  // 5. SAVE ATTENDANCE
   async saveAttendance(data: { studentId: number; status: string; date: string; teacherId: number }) {
-    
-    // 1. Get the Teacher
     const teacher = await prisma.user.findUnique({ where: { id: data.teacherId }, select: { id: true, role: true, classTeacherOf: true } });
     if (!teacher) throw new Error("Teacher not found");
 
-    // 2. Get the Student (include branch)
     const student = await prisma.user.findUnique({ where: { id: data.studentId }, select: { id: true, branch: true } });
     if (!student) throw new Error("Student not found");
 
-    // 3. THE SECURITY CHECK: Is this teacher the Class Teacher of this student?
-    // We allow Admins to bypass this check.
     if (teacher.role !== 'admin' && teacher.classTeacherOf !== student.branch) {
       throw new Error(`Permission Denied: You are not the Class Teacher of ${student.branch}`);
     }
@@ -107,16 +101,17 @@ export class UserService {
     });
   }
 
-  // 7. SUBMIT ASSIGNMENT (Updated for File Upload)
+  // 7. SUBMIT ASSIGNMENT
   async submitAssignment(assignmentId: number, fileUrl?: string) {
     return await prisma.assignment.update({
       where: { id: assignmentId },
       data: { 
         status: 'submitted',
-        submissionUrl: fileUrl || null // Save the link if provided
+        submissionUrl: fileUrl || null
       }
     });
   }
+
   // 8. GRADE ASSIGNMENT
   async gradeAssignment(assignmentId: number, grade: string, feedback: string) {
     return await prisma.assignment.update({
@@ -143,11 +138,11 @@ export class UserService {
   }
 
   // 10. GET ALL USERS
- async getAllUsers() {
+  async getAllUsers() {
     return await prisma.user.findMany({
       orderBy: { id: 'desc' },
       include: { 
-        subjectAllocations: true // <--- Fetch the subjects they teach
+        subjectAllocations: true 
       }
     });
   }
@@ -158,9 +153,10 @@ export class UserService {
     await prisma.assignment.deleteMany({ where: { userId: id } });
     return await prisma.user.delete({ where: { id: id } });
   }
- // 12. PUBLISH EXAM RESULT (Single)
+
+  // 12. PUBLISH EXAM RESULT (Single)
   async publishExamResult(data: { studentId: number; examName: string; score: number; maxScore: number }) {
-    return await prisma.examResult.create({ // <--- FIXED: Removed 's'
+    return await prisma.examResult.create({ 
       data: {
         studentId: data.studentId,
         examName: data.examName,
@@ -172,7 +168,7 @@ export class UserService {
 
   // 13. GET STUDENT RESULTS
   async getStudentResults(studentId: number) {
-    return await prisma.examResult.findMany({ // <--- FIXED: Removed 's'
+    return await prisma.examResult.findMany({ 
       where: { studentId: studentId },
       orderBy: { date: 'desc' }
     });
@@ -180,14 +176,14 @@ export class UserService {
 
   // 14. BULK PUBLISH RESULTS
   async publishBulkResults(results: { studentId: number; examName: string; score: number; maxScore: number }[]) {
-    return await prisma.examResult.createMany({ // <--- FIXED: Removed 's'
+    return await prisma.examResult.createMany({ 
       data: results
     });
   }
 
   // 15. GET ALL RESULTS (For Admin)
   async getAllExamResults() {
-    return await prisma.examResult.findMany({ // <--- FIXED: Removed 's'
+    return await prisma.examResult.findMany({ 
       include: { 
         student: { select: { name: true, email: true, branch: true } } 
       },
@@ -195,16 +191,16 @@ export class UserService {
     });
   }
 
-  // 16. ASSIGN CLASS TEACHER (Admin Only Action)
+  // 16. ASSIGN CLASS TEACHER
   async assignClassTeacher(teacherId: number, className: string) {
     return await prisma.user.update({
       where: { id: teacherId },
       data: { classTeacherOf: className }
     });
   }
-  // 17. ASSIGN SUBJECT TEACHER (New) ➕
+
+  // 17. ASSIGN SUBJECT TEACHER
   async assignSubject(teacherId: number, className: string, subject: string) {
-    // Check if assignment already exists to prevent duplicates
     const existing = await prisma.subjectAllocation.findFirst({
       where: { teacherId, className, subject }
     });
@@ -215,13 +211,14 @@ export class UserService {
     });
   }
 
-  // 18. REMOVE SUBJECT TEACHER (New) ➖
+  // 18. REMOVE SUBJECT TEACHER
   async removeSubject(allocationId: number) {
     return await prisma.subjectAllocation.delete({
       where: { id: allocationId }
     });
   }
-  // 19. GET MY STUDENTS (Context-Aware Fetch - UPDATED) 🕵️‍♂️
+
+  // 19. GET MY STUDENTS
   async getTeacherStudents(teacherId: number) {
     const teacher = await prisma.user.findUnique({
       where: { id: teacherId },
@@ -230,11 +227,9 @@ export class UserService {
 
     if (!teacher) throw new Error("Teacher not found");
 
-    // 1. Build a list of "Dashboard Options" (What shows in the dropdown)
     const dashboardOptions: any[] = [];
     const uniqueClasses = new Set<string>();
 
-    // A. Add Class Teacher Role
     if (teacher.classTeacherOf) {
       dashboardOptions.push({
         label: `${teacher.classTeacherOf} (Class Teacher)`,
@@ -245,7 +240,6 @@ export class UserService {
       uniqueClasses.add(teacher.classTeacherOf);
     }
 
-    // B. Add Subject Allocations
     teacher.subjectAllocations.forEach(alloc => {
       dashboardOptions.push({
         label: `${alloc.subject} - ${alloc.className}`,
@@ -256,7 +250,6 @@ export class UserService {
       uniqueClasses.add(alloc.className);
     });
 
-    // 2. Fetch Students for ALL these classes
     const students = await prisma.user.findMany({
       where: {
         role: 'student',
@@ -268,15 +261,13 @@ export class UserService {
 
     return {
       students,
-      dashboardOptions, // <--- Sending the detailed list now!
+      dashboardOptions, 
       classTeacherOf: teacher.classTeacherOf
     };
   }
-  // --- TIMETABLE FEATURES ---
 
-  // 20. ADD OR UPDATE TIMETABLE SLOT (Smart Upsert) 🧠
+  // 20. ADD OR UPDATE TIMETABLE SLOT
   async addTimetableSlot(data: { className: string; day: string; startTime: string; endTime: string; subject: string; teacherId?: number }) {
-    // 1. Check if a slot already exists for this Class + Day + Time
     const existingSlot = await prisma.timetable.findFirst({
       where: {
         className: data.className,
@@ -286,17 +277,15 @@ export class UserService {
     });
 
     if (existingSlot) {
-      // 2. UPDATE existing slot
       return await prisma.timetable.update({
         where: { id: existingSlot.id },
         data: {
           subject: data.subject,
-          teacherId: data.teacherId, // Optional: Update teacher if provided
+          teacherId: data.teacherId, 
           endTime: data.endTime
         }
       });
     } else {
-      // 3. CREATE new slot
       return await prisma.timetable.create({
         data: {
           className: data.className,
@@ -309,7 +298,8 @@ export class UserService {
       });
     }
   }
-  // 21. GET CLASS TIMETABLE (For Students)
+
+  // 21. GET CLASS TIMETABLE
   async getClassTimetable(className: string) {
     return await prisma.timetable.findMany({
       where: { className },
@@ -318,14 +308,15 @@ export class UserService {
     });
   }
 
-  // 22. GET TEACHER TIMETABLE (For Teachers)
+  // 22. GET TEACHER TIMETABLE
   async getTeacherTimetable(teacherId: number) {
     return await prisma.timetable.findMany({
       where: { teacherId },
       orderBy: { startTime: 'asc' }
     });
   }
-  // 23. ADD SCHOOL EVENT (Admin) 📅
+
+  // 23. ADD SCHOOL EVENT
   async addSchoolEvent(data: { title: string; date: string; description: string; type: string }) {
     return await prisma.schoolEvent.create({
       data: {
@@ -337,15 +328,43 @@ export class UserService {
     });
   }
 
-  // 24. GET UPCOMING EVENTS (Everyone) 🗓️
+  // 24. GET UPCOMING EVENTS
   async getSchoolEvents() {
     return await prisma.schoolEvent.findMany({
       orderBy: { date: 'asc' },
       where: {
         date: {
-          gte: new Date() // Only show future/today's events
+          gte: new Date() 
         }
       }
     });
+  }
+
+  // 25. CHANGE PASSWORD LOGIC
+
+  async changePassword(data: any) {
+    const { userId, currentPassword, newPassword } = data;
+
+    // Find the user by ID
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) }
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if current password matches
+    if (user.password !== currentPassword) {
+      throw new Error("Incorrect current password");
+    }
+
+    // Update the password
+    await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { password: newPassword }
+    });
+
+    return { message: "Password updated successfully!" };
   }
 }

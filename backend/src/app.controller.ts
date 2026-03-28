@@ -49,9 +49,8 @@ export class AppController {
   }
 
   // 6. SAVE ATTENDANCE
- @Post('attendance')
+  @Post('attendance')
   async markAttendance(@Body() body: { studentId: number; status: string; date: string; teacherId: number }) {
-    // Note: We now expect 'teacherId' in the body
     return await this.userService.saveAttendance(body);
   }
 
@@ -65,9 +64,8 @@ export class AppController {
   @Post('assignment/:id/submit')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: './uploads', // Files will be saved here
+      destination: './uploads', 
       filename: (req, file, cb) => {
-        // Generate a random name to prevent duplicates
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         cb(null, `${randomName}${extname(file.originalname)}`);
       },
@@ -75,10 +73,7 @@ export class AppController {
   }))
   async submitAssignment(@Param('id') id: string, @UploadedFile() file: any) {
     console.log(`File uploaded:`, file?.filename);
-    
-    // Create the full URL so the frontend can download it later
     const fileUrl = file ? `http://localhost:4000/uploads/${file.filename}` : undefined;
-    
     return await this.userService.submitAssignment(Number(id), fileUrl);
   }
 
@@ -99,11 +94,13 @@ export class AppController {
   async deleteUser(@Param('id') id: string) {
     return await this.userService.deleteUser(Number(id));
   }
+
   // 12. Grade Assignment Route
   @Post('assignment/:id/grade')
   async gradeAssignment(@Param('id') id: string, @Body() body: { grade: string; feedback: string }) {
     return await this.userService.gradeAssignment(Number(id), body.grade, body.feedback);
   }
+
   // 13. PUBLISH RESULT
   @Post('exam/publish')
   async publishResult(@Body() body: { studentId: number; examName: string; score: number; maxScore: number }) {
@@ -115,38 +112,44 @@ export class AppController {
   async getResults(@Param('id') id: string) {
     return await this.userService.getStudentResults(Number(id));
   }
+
   // 15. BULK PUBLISH ROUTE
   @Post('exam/publish-bulk')
   async publishBulk(@Body() body: { results: any[] }) {
     return await this.userService.publishBulkResults(body.results);
   }
+
   // 16. ADMIN RESULTS ROUTE
   @Get('admin/results')
   async getAllExamResults() {
     return await this.userService.getAllExamResults();
   }
+
   // 17. ASSIGN CLASS TEACHER
   @Post('admin/assign-class-teacher')
   async assignClassTeacher(@Body() body: { teacherId: number; className: string }) {
     return await this.userService.assignClassTeacher(body.teacherId, body.className);
   }
+
   // 18. ASSIGN SUBJECT TO TEACHER
   @Post('admin/assign-subject')
   async assignSubject(@Body() body: { teacherId: number; className: string; subject: string }) {
     return await this.userService.assignSubject(body.teacherId, body.className, body.subject);
   }
-// 19. REMOVE SUBJECT FROM TEACHER
+
+  // 19. REMOVE SUBJECT FROM TEACHER
   @Delete('admin/subject/:id')
   async removeSubject(@Param('id') id: string) {
     return await this.userService.removeSubject(Number(id));
   }
+
   // 20. GET MY STUDENTS ROUTE
   @Get('teacher/:id/students')
   async getMyStudents(@Param('id') id: string) {
     return await this.userService.getTeacherStudents(Number(id));
   }
-  // 21. TIMETABLE ROUTES
 
+  // 21. TIMETABLE ROUTES
   @Post('admin/timetable')
   async addTimetableSlot(@Body() body: any) {
     return await this.userService.addTimetableSlot(body);
@@ -162,7 +165,7 @@ export class AppController {
     return await this.userService.getTeacherTimetable(Number(id));
   }
 
-  //22. EVENT ROUTES 
+  // 22. EVENT ROUTES 
   @Post('admin/event')
   async addSchoolEvent(@Body() body: any) {
     return await this.userService.addSchoolEvent(body);
@@ -171,5 +174,16 @@ export class AppController {
   @Get('events')
   async getSchoolEvents() {
     return await this.userService.getSchoolEvents();
+  }
+
+  //23. CHANGE PASSWORD ROUTE
+
+  @Post('change-password')
+  async changePassword(@Body() body: any) {
+    try {
+      return await this.userService.changePassword(body);
+    } catch (error: any) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
   }
 }

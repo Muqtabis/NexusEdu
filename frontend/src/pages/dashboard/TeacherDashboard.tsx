@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, Star, ExternalLink, Trophy, Filter, Lock, Send } from 'lucide-react';
+import { Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, Star, ExternalLink, Trophy, Filter, Lock, Send, BarChart, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Assignment { id: number; title: string; status: string; submissionUrl?: string; grade?: string; feedback?: string; }
 interface Student { id: number; name: string; email: string; branch?: string; rollNumber?: string; status: 'present' | 'absent' | 'late'; assignments: Assignment[]; }
@@ -32,7 +32,8 @@ const TeacherDashboard = () => {
 
   const fetchMyData = async () => {
     try {
-      const res = await fetch(`http://localhost:4000/teacher/${teacherId}/students`);
+      // 🚀 Updated API URL here
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/teacher/${teacherId}/students`);
       const data = await res.json();
       
       if (data.students) {
@@ -58,8 +59,16 @@ const TeacherDashboard = () => {
     }
   }, [selectedOption, allStudents]);
 
-  // --- ACTIONS ---
+  // --- ANALYTICS CALCULATIONS ---
+  const presentCount = filteredStudents.filter(s => s.status === 'present').length;
+  const absentCount = filteredStudents.filter(s => s.status === 'absent').length;
+  const lateCount = filteredStudents.filter(s => s.status === 'late').length;
+  
+  const pendingGradingCount = filteredStudents.reduce((acc, student) => {
+    return acc + student.assignments.filter(a => a.status === 'submitted').length;
+  }, 0);
 
+  // --- ACTIONS ---
   const toggleStatus = (id: number) => {
     if (selectedOption?.role !== "class_teacher") {
       alert("🔒 Access Denied: Only the Class Teacher can mark attendance.");
@@ -78,7 +87,8 @@ const TeacherDashboard = () => {
     try {
       const date = new Date().toISOString();
       for (const student of filteredStudents) {
-        await fetch('http://localhost:4000/attendance', { 
+        // 🚀 Updated API URL here
+        await fetch(`${import.meta.env.VITE_API_URL}/attendance`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ studentId: student.id, status: student.status, date: date, teacherId: teacherId }) 
@@ -102,7 +112,8 @@ const TeacherDashboard = () => {
 
     try {
       for (const student of filteredStudents) {
-        await fetch('http://localhost:4000/assignment', { 
+        // 🚀 Updated API URL here
+        await fetch(`${import.meta.env.VITE_API_URL}/assignment`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ title, subject, dueDate: new Date().toISOString(), studentId: student.id }) 
@@ -118,7 +129,6 @@ const TeacherDashboard = () => {
   const handleBulkPublish = async () => {
     if (!examTitle) return alert("Please enter an Exam Title (e.g., Term 1)!");
 
-    // Creates the structured tag: "Physics - Formative Assessment | Term 1"
     const subjectPrefix = selectedOption?.subject && selectedOption.subject !== "General" ? `${selectedOption.subject} - ` : "General - ";
     const finalExamName = `${subjectPrefix}${examCategory} | ${examTitle}`;
 
@@ -132,7 +142,8 @@ const TeacherDashboard = () => {
     if (resultsPayload.length === 0) return alert("Please enter marks for at least one student.");
 
     try {
-        await fetch('http://localhost:4000/exam/publish-bulk', {
+        // 🚀 Updated API URL here
+        await fetch(`${import.meta.env.VITE_API_URL}/exam/publish-bulk`, {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ results: resultsPayload })
@@ -148,7 +159,8 @@ const TeacherDashboard = () => {
   const handleGradeSubmit = async () => {
     if (!selectedWork) return;
     try {
-      await fetch(`http://localhost:4000/assignment/${selectedWork.work.id}/grade`, { 
+      // 🚀 Updated API URL here
+      await fetch(`${import.meta.env.VITE_API_URL}/assignment/${selectedWork.work.id}/grade`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ grade, feedback }) 
@@ -163,89 +175,112 @@ const TeacherDashboard = () => {
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-slate-500"><Loader2 className="animate-spin inline mr-2" /> Loading Dashboard...</div>;
+  if (loading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-indigo-600" size={40} /> <p className="font-bold text-slate-500">Loading Faculty Dashboard...</p></div>;
 
   return (
-    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-12 pt-4">
+    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-32 pt-4 relative min-h-screen">
       
-      {/* 1. HEADER */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
-        <h1 className="text-3xl font-normal text-slate-800 tracking-tight">Teacher Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-2 mb-6">
-          Context: <span className="font-bold text-indigo-600">{selectedOption?.label || "No Classes Assigned"}</span>
-        </p>
-        
-        <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-4 py-3 w-full max-w-sm">
-           <Filter size={16} className="text-slate-400"/>
-           <select 
-             className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
-             onChange={(e) => {
-               const selected = dashboardOptions.find(opt => opt.label === e.target.value);
-               setSelectedOption(selected || null);
-             }}
-             value={selectedOption?.label || ""}
-           >
-             {dashboardOptions.length === 0 && <option>No Classes Assigned</option>}
-             {dashboardOptions.map(opt => <option key={opt.label} value={opt.label}>{opt.label}</option>)}
-           </select>
+      {/* 1. HEADER & CLASS ANALYTICS */}
+      <div className="bg-slate-900 text-white rounded-[2.5rem] shadow-2xl p-8 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight">Faculty Portal</h1>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-xs">Classroom Management</p>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-white/10 border border-white/20 rounded-2xl p-2 backdrop-blur-md w-full md:w-auto">
+             <Filter size={18} className="ml-3 text-slate-300"/>
+             <select 
+               className="bg-transparent font-bold text-white outline-none cursor-pointer pr-4 py-2 appearance-none"
+               onChange={(e) => {
+                 const selected = dashboardOptions.find(opt => opt.label === e.target.value);
+                 setSelectedOption(selected || null);
+               }}
+               value={selectedOption?.label || ""}
+             >
+               {dashboardOptions.length === 0 && <option className="text-slate-800">No Classes Assigned</option>}
+               {dashboardOptions.map(opt => <option key={opt.label} value={opt.label} className="text-slate-800">{opt.label}</option>)}
+             </select>
+          </div>
         </div>
+
+        {/* Quick Analytics Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 relative z-10">
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Roster</p>
+            <h2 className="text-2xl font-black text-white">{filteredStudents.length} <span className="text-sm font-normal text-slate-500">Students</span></h2>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Present Today</p>
+            <h2 className="text-2xl font-black text-emerald-300">{presentCount}</h2>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Absent/Late</p>
+            <h2 className="text-2xl font-black text-rose-300">{absentCount + lateCount}</h2>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-center">
+            <div className="flex items-center gap-2">
+               <AlertCircle size={16} className={pendingGradingCount > 0 ? "text-amber-400" : "text-slate-500"} />
+               <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Pending Grading</p>
+            </div>
+            <h2 className="text-2xl font-black text-amber-300 mt-1">{pendingGradingCount} <span className="text-sm font-normal text-slate-500">Items</span></h2>
+          </div>
+        </div>
+        <div className="absolute right-0 top-0 h-full w-96 bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none" />
       </div>
 
-      {/* 2. THE HORIZONTAL TABS */}
-      <div className="flex gap-4 border-b border-slate-200 overflow-x-auto hide-scrollbar px-2">
-        <button 
-          onClick={() => setActiveTab('attendance')} 
-          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'attendance' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Daily Attendance
-        </button>
-        <button 
-          onClick={() => setActiveTab('assignments')} 
-          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'assignments' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Manage Assignments
-        </button>
-        <button 
-          onClick={() => setActiveTab('gradebook')} 
-          className={`pb-3 text-sm font-bold whitespace-nowrap px-4 ${activeTab === 'gradebook' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Class Gradebook
-        </button>
+      {/* 2. NAVIGATION TABS */}
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto hide-scrollbar px-2">
+        {[
+          { id: 'attendance', label: 'Daily Attendance' },
+          { id: 'assignments', label: 'Manage Assignments' },
+          { id: 'gradebook', label: 'Class Gradebook' }
+        ].map(tab => (
+           <button 
+             key={tab.id}
+             onClick={() => setActiveTab(tab.id as any)} 
+             className={`pb-4 px-6 text-sm font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+           >
+             {tab.label}
+           </button>
+        ))}
       </div>
 
       {/* --- TAB 1: ATTENDANCE CONTENT --- */}
       {activeTab === 'attendance' && (
-        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <h3 className="font-medium text-slate-700 flex items-center gap-2 text-[15px]">
-              <Users size={18} className="text-slate-500" /> Attendance Register
-            </h3>
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
+            <div>
+              <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2">
+                <Users size={18} className="text-indigo-600" /> Register: {selectedOption?.className || "Select Class"}
+              </h3>
+            </div>
             {selectedOption?.role === "class_teacher" ? (
-              <button onClick={saveAttendance} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm">
-                {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} {saving ? 'Saving...' : 'Save Attendance'}
+              <button onClick={saveAttendance} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-200">
+                {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} {saving ? 'Syncing...' : 'Save Register'}
               </button>
             ) : (
-              <div className="flex items-center gap-2 text-xs font-bold bg-slate-200 text-slate-500 px-4 py-2 rounded-xl cursor-not-allowed">
-                <Lock size={14} /> Read Only
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-black bg-slate-100 text-slate-400 px-4 py-2 rounded-xl border border-slate-200 cursor-not-allowed">
+                <Lock size={14} /> View Only Access
               </div>
             )}
           </div>
           <div className="divide-y divide-slate-50">
             {filteredStudents.length === 0 ? ( 
-              <div className="p-10 text-center text-slate-400">No students found.</div> 
+              <div className="p-10 text-center text-slate-400 font-medium">No students enrolled in this class.</div> 
             ) : (
               filteredStudents.map((student, index) => (
-                <div key={student.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm shadow-sm">{student.rollNumber || index + 1}</div>
+                <div key={student.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center gap-5">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm border border-slate-200">{student.rollNumber || index + 1}</div>
                     <div>
-                      <h4 className="font-bold text-slate-800 text-[15px]">{student.name}</h4>
-                      <p className="text-xs text-slate-400 mt-0.5">{student.email}</p>
+                      <h4 className="font-bold text-slate-800 text-base">{student.name}</h4>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{student.email}</p>
                     </div>
                   </div>
                   <div className={`cursor-pointer ${selectedOption?.role !== "class_teacher" ? 'opacity-50 pointer-events-none' : ''}`} onClick={() => toggleStatus(student.id)}>
-                    <span className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 w-28 justify-center uppercase
-                      ${student.status === 'present' ? 'bg-[#dcfce7] text-[#166534]' : student.status === 'absent' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span className={`px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 w-32 justify-center uppercase tracking-widest border transition-all
+                      ${student.status === 'present' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : student.status === 'absent' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                       {student.status === 'present' && <Check size={14} />} 
                       {student.status === 'absent' && <X size={14} />} 
                       {student.status === 'late' && <Clock size={14} />} 
@@ -261,33 +296,39 @@ const TeacherDashboard = () => {
 
       {/* --- TAB 2: ASSIGNMENTS CONTENT --- */}
       {activeTab === 'assignments' && (
-        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <h3 className="font-medium text-slate-700 flex items-center gap-2 text-[15px]">
-              <FileText size={18} className="text-slate-500" /> Student Submissions
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
+            <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2">
+              <FileText size={18} className="text-indigo-600" /> Grading Queue
             </h3>
-            <button onClick={assignHomework} className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
+            <button onClick={assignHomework} className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
               <PlusCircle size={16} /> New Assignment
             </button>
           </div>
-          <div className="p-6 flex flex-col gap-6">
+          <div className="p-8 flex flex-col gap-6">
             {filteredStudents.length === 0 ? ( 
-              <div className="text-center text-slate-400">No students found.</div> 
+              <div className="text-center text-slate-400 font-medium">No students available for assignments.</div> 
             ) : (
               filteredStudents.map((student) => (
                 student.assignments.length > 0 && (
-                  <div key={student.id} className="border border-slate-100 rounded-2xl p-5 shadow-sm">
-                    <h4 className="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-50">{student.name}'s Work</h4>
-                    <div className="space-y-3">
+                  <div key={student.id} className="border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:border-indigo-100 transition-all">
+                    <h4 className="font-black text-slate-800 mb-5 pb-4 border-b border-slate-50 text-lg">{student.name}</h4>
+                    <div className="space-y-4">
                       {student.assignments.map(work => (
-                        <div key={work.id} className="flex flex-col md:flex-row md:justify-between md:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-3">
-                          <span className="text-sm font-medium text-slate-700 truncate max-w-[300px]">{work.title}</span>
+                        <div key={work.id} className="flex flex-col md:flex-row md:justify-between md:items-center bg-slate-50 p-5 rounded-2xl border border-slate-100 gap-4">
+                          <span className="text-sm font-bold text-slate-700 truncate max-w-[400px]">{work.title}</span>
                           {work.status === 'graded' ? (
-                            <div className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-100 px-3 py-1.5 rounded-lg text-xs self-start md:self-auto"><Star size={12} fill="currentColor" /> {work.grade}</div>
+                            <div className="flex items-center gap-2 text-emerald-600 font-black bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl text-xs self-start md:self-auto uppercase tracking-widest">
+                              <Star size={14} fill="currentColor" /> {work.grade}
+                            </div>
                           ) : work.status === 'submitted' ? (
-                            <button onClick={() => setSelectedWork({ student, work })} className="text-indigo-600 font-bold bg-indigo-100 px-4 py-2 rounded-lg text-xs hover:bg-indigo-200 transition-colors self-start md:self-auto">Grade Now</button>
+                            <button onClick={() => setSelectedWork({ student, work })} className="text-white font-black bg-indigo-600 px-5 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 self-start md:self-auto">
+                              Grade Now
+                            </button>
                           ) : (
-                            <span className="text-slate-400 italic text-xs font-medium px-3 py-1.5 bg-white border border-slate-200 rounded-lg self-start md:self-auto">Pending...</span>
+                            <span className="text-slate-400 text-[10px] uppercase font-black tracking-widest px-4 py-2.5 bg-white border border-slate-200 rounded-xl self-start md:self-auto">
+                              Pending Submission
+                            </span>
                           )}
                         </div>
                       ))}
@@ -302,15 +343,17 @@ const TeacherDashboard = () => {
 
       {/* --- TAB 3: GRADEBOOK CONTENT --- */}
       {activeTab === 'gradebook' && (
-        <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-          <div className="p-6 border-b border-slate-100 bg-amber-50/30">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6"><Trophy size={20} className="text-amber-500" /> Exam Publishing</h3>
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="p-8 border-b border-slate-100 bg-amber-50/30">
+            <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2 mb-6">
+               <Trophy size={20} className="text-amber-500" /> Result Publisher
+            </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Exam Type</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-2">Exam Type</label>
                 <select 
-                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold text-slate-700 cursor-pointer" 
+                  className="w-full p-4 border border-slate-200 rounded-2xl bg-white outline-none focus:ring-2 focus:ring-amber-400 text-sm font-bold text-slate-700 cursor-pointer transition-all" 
                   value={examCategory} 
                   onChange={(e) => setExamCategory(e.target.value)}
                 >
@@ -320,19 +363,19 @@ const TeacherDashboard = () => {
                   <option value="Final Examination">Final Examination</option>
                 </select>
               </div>
-              <div className="md:col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Term / Title</label>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-2">Term / Title</label>
                 <input 
-                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold" 
+                  className="w-full p-4 border border-slate-200 rounded-2xl bg-white outline-none focus:ring-2 focus:ring-amber-400 text-sm font-bold transition-all" 
                   placeholder="e.g. Unit 1, Midterm" 
                   value={examTitle} 
                   onChange={(e) => setExamTitle(e.target.value)} 
                 />
               </div>
-              <div className="md:col-span-1">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Max Score</label>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-black text-slate-400 mb-2">Maximum Score</label>
                 <input 
-                  className="w-full p-3 border border-slate-200 rounded-xl bg-white outline-none focus:border-amber-400 text-sm font-semibold" 
+                  className="w-full p-4 border border-slate-200 rounded-2xl bg-white outline-none focus:ring-2 focus:ring-amber-400 text-sm font-bold transition-all" 
                   type="number" 
                   value={maxScore} 
                   onChange={(e) => setMaxScore(e.target.value)} 
@@ -340,31 +383,32 @@ const TeacherDashboard = () => {
               </div>
             </div>
 
-            <div className="mt-4 text-[11px] font-bold text-slate-400 bg-white inline-block px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-               Database Tag: <span className="text-indigo-600">{selectedOption?.subject !== "General" ? selectedOption?.subject : "General"} - {examCategory} | {examTitle || '[Title]'}</span>
+            <div className="mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white inline-block px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+               System Tag: <span className="text-indigo-600">{selectedOption?.subject !== "General" ? selectedOption?.subject : "General"} - {examCategory} | {examTitle || '[Title]'}</span>
             </div>
           </div>
 
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+            <thead className="bg-slate-50/50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
               <tr>
-                <th className="p-4 pl-6">Roll No</th>
-                <th className="p-4">Student Name</th>
-                <th className="p-4 pr-6">Marks Obtained</th>
+                <th className="p-6 pl-8">Identity</th>
+                <th className="p-6 pr-8 text-right">Marks Obtained</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredStudents.length === 0 ? ( 
-                <tr><td colSpan={3} className="p-8 text-center text-slate-400">No students found.</td></tr> 
+                <tr><td colSpan={2} className="p-10 text-center text-slate-400 font-medium">No students available.</td></tr> 
               ) : (
                 filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 pl-6 font-medium text-slate-500">{student.rollNumber || '-'}</td>
-                    <td className="p-4 font-bold text-slate-700 text-[15px]">{student.name}</td>
-                    <td className="p-4 pr-6">
+                  <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-6 pl-8">
+                       <div className="font-bold text-slate-800 text-base">{student.name}</div>
+                       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Roll No: {student.rollNumber || '-'}</div>
+                    </td>
+                    <td className="p-6 pr-8 flex justify-end">
                       <input 
                         type="number" 
-                        className="w-full max-w-[150px] p-2.5 border border-slate-200 rounded-lg focus:border-amber-400 outline-none font-black text-indigo-700 text-lg" 
+                        className="w-full max-w-[120px] p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-black text-indigo-700 text-lg text-center bg-slate-50 transition-all" 
                         placeholder="0" 
                         value={marks[student.id] || ''} 
                         onChange={(e) => setMarks({ ...marks, [student.id]: e.target.value })} 
@@ -375,9 +419,9 @@ const TeacherDashboard = () => {
               )}
             </tbody>
           </table>
-          <div className="p-6 bg-slate-50 border-t border-slate-100">
-            <button onClick={handleBulkPublish} className="w-full p-4 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 shadow-lg shadow-slate-200 transition-all flex justify-center items-center gap-2">
-              <Send size={18} /> Publish to Student Report Cards
+          <div className="p-8 bg-slate-50/50 border-t border-slate-100">
+            <button onClick={handleBulkPublish} className="w-full p-5 bg-slate-900 text-white text-xs uppercase tracking-widest font-black rounded-2xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all flex justify-center items-center gap-3">
+              <Send size={18} /> Publish to Student Portals
             </button>
           </div>
         </div>
@@ -385,24 +429,31 @@ const TeacherDashboard = () => {
 
       {/* --- GRADING MODAL --- */}
       {selectedWork && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 relative">
-            <button onClick={() => setSelectedWork(null)} className="absolute right-6 top-6 text-slate-400 hover:text-slate-600"><X size={20} /></button>
-            <h2 className="text-xl font-bold mb-1 text-slate-800">Grade Work</h2>
-            <p className="text-slate-500 text-sm mb-6">{selectedWork.student.name} • {selectedWork.work.title}</p>
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 relative animate-in zoom-in-95">
+            <button onClick={() => setSelectedWork(null)} className="absolute right-8 top-8 text-slate-300 hover:text-slate-600 transition-colors"><X size={24} /></button>
+            <h2 className="text-2xl font-black mb-1 text-slate-800">Review Work</h2>
+            <p className="text-slate-400 text-sm font-medium mb-8">{selectedWork.student.name} • {selectedWork.work.title}</p>
+            
             {selectedWork.work.submissionUrl ? ( 
-              <a href={selectedWork.work.submissionUrl} target="_blank" rel="noreferrer" className="block w-full p-3 bg-indigo-50 text-indigo-600 rounded-xl text-center font-bold mb-6 hover:bg-indigo-100 border border-indigo-100 flex items-center justify-center gap-2 transition-colors"><ExternalLink size={16} /> View Submitted File</a> 
+              <a href={selectedWork.work.submissionUrl} target="_blank" rel="noreferrer" className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl text-center font-bold text-sm mb-8 hover:bg-indigo-100 border border-indigo-100 flex items-center justify-center gap-2 transition-colors">
+                <ExternalLink size={18} /> Open Submitted Document
+              </a> 
             ) : ( 
-              <div className="w-full p-3 bg-amber-50 text-amber-600 rounded-xl text-center text-xs font-bold mb-6 border border-amber-100 border-dashed">⚠️ No file attached</div> 
+              <div className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl text-center text-xs font-black uppercase tracking-widest mb-8 border border-amber-100 border-dashed">
+                ⚠️ No file attached
+              </div> 
             )}
-            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Score</label>
-            <input className="w-full p-3.5 border border-slate-200 rounded-xl mb-4 focus:outline-none focus:border-indigo-500 bg-slate-50" placeholder="e.g., 95/100" value={grade} onChange={(e) => setGrade(e.target.value)} />
-            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Feedback</label>
-            <textarea className="w-full p-3.5 border border-slate-200 rounded-xl mb-8 focus:outline-none focus:border-indigo-500 bg-slate-50" rows={3} placeholder="Great job..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-            <div className="flex gap-3">
-              <button onClick={() => setSelectedWork(null)} className="flex-1 p-3.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-              <button onClick={handleGradeSubmit} className="flex-1 p-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Submit Grade</button>
-            </div>
+            
+            <label className="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Assign Score</label>
+            <input className="w-full p-4 border border-slate-100 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-bold" placeholder="e.g., 95/100 or A+" value={grade} onChange={(e) => setGrade(e.target.value)} />
+            
+            <label className="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Constructive Feedback</label>
+            <textarea className="w-full p-4 border border-slate-100 rounded-2xl mb-8 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium text-sm" rows={4} placeholder="Excellent reasoning, but check your formatting..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+            
+            <button onClick={handleGradeSubmit} className="w-full p-4 bg-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+               Confirm Grade
+            </button>
           </div>
         </div>
       )}

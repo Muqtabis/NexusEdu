@@ -7,14 +7,20 @@ const navItems = [
   { icon: Calendar, label: 'Schedule', path: '/schedule' },
   { icon: Sparkles, label: 'AI Agent', path: '/agents' },
   { icon: User, label: 'Profile', path: '/profile' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+  // Linked Settings to Profile for now to prevent a blank page
+  { icon: Settings, label: 'Settings', path: '/profile' }, 
 ];
 
 export const DesktopSidebar = () => {
   const location = useLocation();
 
+  // --- LOGOUT LOGIC ---
+  const handleLogout = () => {
+    localStorage.clear(); // Wipes memory
+    window.location.href = '/login'; // Hard redirect to clear all states
+  };
+
   return (
-    // Hidden on mobile (hidden), shown on medium screens and up (md:flex)
     <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 z-50 pt-24 px-4 pb-6">
       
       <div className="flex-1 space-y-2">
@@ -22,7 +28,7 @@ export const DesktopSidebar = () => {
           const isActive = location.pathname === item.path;
           return (
             <Link 
-              key={item.path} 
+              key={item.label} 
               to={item.path} 
               className={clsx(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium",
@@ -38,8 +44,11 @@ export const DesktopSidebar = () => {
         })}
       </div>
 
-      {/* Logout Button at bottom */}
-      <button className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium">
+      {/* --- CONNECTED LOGOUT BUTTON --- */}
+      <button 
+        onClick={handleLogout}
+        className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium"
+      >
         <LogOut size={20} />
         Sign Out
       </button>
