@@ -20,7 +20,7 @@ async function bootstrap() {
   // 2. DYNAMIC PORT BINDING
   // Railway and other hosts provide a PORT environment variable.
   // We also bind to '0.0.0.0' so the service is reachable externally.
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT || 8080;
   
   await app.listen(port, '0.0.0.0');
   
