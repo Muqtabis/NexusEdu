@@ -9,10 +9,7 @@ async function bootstrap() {
   // 1. ENABLE CORS
   // This allows your React frontend (on Vercel) to talk to this API.
   app.enableCors({
-   origin: [
-      'https://nexusedu-eta.vercel.app', 
-      'http://localhost:5173'
-    ],
+    origin: true, // <--- This magic word accepts ANY Vercel URL
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
