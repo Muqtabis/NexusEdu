@@ -21,6 +21,11 @@ model User {
   assignments        Assignment[]
   examResults        ExamResult[]
   timetable          Timetable[]
+  avatar    String?  @default("https://cdn-icons-png.flaticon.com/512/149/149071.png") // Default fallback image
+  bio       String?  @db.Text
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Assignment {

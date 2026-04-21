@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Put, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -185,5 +185,10 @@ export class AppController {
     } catch (error: any) {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
+  }
+  // 24. UPDATE PROFILE picture route
+  @Put('user/:id/profile')
+  async updateProfile(@Param('id') id: string, @Body() body: { avatar?: string; bio?: string }) {
+    return this.userService.updateProfile(Number(id), body); // Change 'this.userService' if your service has a different name!
   }
 }

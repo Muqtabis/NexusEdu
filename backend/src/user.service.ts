@@ -367,4 +367,12 @@ export class UserService {
 
     return { message: "Password updated successfully!" };
   }
+  // 26. profile picture upload and update logic can be added here in the future
+  async updateProfile(userId: number, updateData: { avatar?: string; bio?: string }) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: { id: true, name: true, email: true, role: true, avatar: true, bio: true } 
+    });
+  }
 }
