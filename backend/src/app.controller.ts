@@ -4,6 +4,9 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { UserService } from './user.service';
 import { AiService } from './ai/ai.service';
+import { PrismaClient } from '@prisma/client'; // <-- Added Prisma Import
+
+const prisma = new PrismaClient(); // <-- Instantiated Prisma for the LMS
 
 @Controller()
 export class AppController {
@@ -13,9 +16,13 @@ export class AppController {
   ) {}
 
   // 1. LOGIN
+  // 1. LOGIN
   @Post('login')
-  async login(@Body() body: { email: string; pass: string }) {
-    const user = await this.userService.validateUser(body.email, body.pass);
+  async login(@Body() body: { email: string; pass?: string; password?: string }) {
+    // This safely grabs the password whether React calls it 'pass' or 'password'
+    const actualPassword = body.password || body.pass;
+    
+    const user = await this.userService.validateUser(body.email, actualPassword);
     if (!user) throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
     return user;
   }
@@ -98,11 +105,13 @@ export class AppController {
   async deleteUser(@Param('id') id: string) {
     return await this.userService.deleteUser(Number(id));
   }
+
   // 12. Grade Assignment Route
   @Post('assignment/:id/grade')
   async gradeAssignment(@Param('id') id: string, @Body() body: { grade: string; feedback: string }) {
     return await this.userService.gradeAssignment(Number(id), body.grade, body.feedback);
   }
+
   // 13. PUBLISH RESULT
   @Post('exam/publish')
   async publishResult(@Body() body: { studentId: number; examName: string; score: number; maxScore: number }) {
@@ -114,14 +123,165 @@ export class AppController {
   async getResults(@Param('id') id: string) {
     return await this.userService.getStudentResults(Number(id));
   }
+
   // 15. BULK PUBLISH ROUTE
   @Post('exam/publish-bulk')
   async publishBulk(@Body() body: { results: any[] }) {
     return await this.userService.publishBulkResults(body.results);
   }
+
   // 16. ADMIN RESULTS ROUTE
   @Get('admin/results')
   async getAllExamResults() {
     return await this.userService.getAllExamResults();
+  }
+
+  // ==========================================
+  // NEW LMS ROUTES (COURSE BUILDER)
+  // ==========================================
+
+  // 17. GET ALL COURSES (Student Portal)
+// 1. GET ALL COURSES (Powers the Student Dashboard Catalog)
+  @Get('api/courses')
+  async getAllCourses() {
+    return await prisma.course.findMany({
+      include: {
+        modules: {
+          include: { lessons: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  // 2. GET ONE COURSE (Powers the Course Player)
+  @Get('api/courses/:id')
+  async getOneCourse(@Param('id') id: string) {
+    return await prisma.course.findUnique({
+      where: { id: id },
+      include: {
+        modules: {
+          include: {
+            lessons: true
+          }
+        }
+      }
+    });
+  }
+  // 18. CREATE NEW COURSE (Teacher Builder)
+ @Post('api/courses')
+  async createCourse(@Body() body: any) {
+    // This tells Prisma to create the Course, the Module, and the Lesson all at once!
+    return await prisma.course.create({
+      data: {
+        title: body.title,
+        description: body.description,
+        thumbnail: body.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600",
+        modules: {
+          create: body.modules.map((mod: any) => ({
+            title: mod.title,
+            lessons: {
+              create: mod.lessons.map((lesson: any) => ({
+                title: lesson.title,
+                videoUrl: lesson.videoUrl
+              }))
+            }
+          }))
+        }
+      }
+    });
+  }
+  // 19. ENROLL IN A COURSE
+  @Post('api/courses/:courseId/enroll')
+  async enrollCourse(@Param('courseId') courseId: string, @Body() body: { userId: number }) {
+    return await prisma.enrollment.create({
+      data: { courseId, userId: body.userId }
+    });
+  }
+
+  // 20. GET STUDENT'S ENROLLED COURSES & PROGRESS
+  @Get('api/students/:userId/learning')
+  async getStudentLearning(@Param('userId') userId: string) {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId: Number(userId) },
+      include: { 
+        course: { 
+          include: { modules: { include: { lessons: true } } } 
+        } 
+      }
+    });
+
+    const progress = await prisma.lessonProgress.findMany({
+      where: { userId: Number(userId) }
+    });
+
+    return { enrollments, progress };
+  }
+
+  // 21. MARK LESSON AS COMPLETE
+  @Post('api/progress/complete')
+  async completeLesson(@Body() body: { userId: number; lessonId: string }) {
+    return await prisma.lessonProgress.upsert({
+      where: { userId_lessonId: { userId: body.userId, lessonId: body.lessonId } },
+      update: { isCompleted: true },
+      create: { userId: body.userId, lessonId: body.lessonId, isCompleted: true }
+    });
+  }
+  // 22. LESSON COMMENTS
+  @Get('api/lessons/:lessonId/comments')
+  async getComments(@Param('lessonId') lessonId: string) {
+    const data = await prisma.comment.findMany({
+      where: { lessonId },
+      orderBy: { createdAt: 'desc' }
+    });
+    return data || []; // This ensures you ALWAYS return an array
+  }
+// 23. POST A COMMENT
+  @Post('api/lessons/:lessonId/comments')
+  async postComment(@Param('lessonId') lessonId: string, @Body() body: any) {
+    return await prisma.comment.create({
+      data: {
+        text: body.text,
+        userName: body.userName,
+        userId: body.userId,
+        lessonId: lessonId
+      }
+    });
+  }
+  // 24. STUDENT ACTIVITY FEED
+  @Get('api/students/:userId/activity')
+  async getStudentActivity(@Param('userId') userId: string) {
+    const uid = Number(userId);
+    
+    // 1. Fetch recent course enrollments
+    const enrollments = await prisma.enrollment.findMany({
+      where: { userId: uid },
+      orderBy: { createdAt: 'desc' },
+      include: { course: true },
+      take: 2
+    });
+
+    // 2. Fetch recently completed lessons
+    const progress = await prisma.lessonProgress.findMany({
+      where: { userId: uid },
+      orderBy: { updatedAt: 'desc' },
+      take: 3
+    });
+
+    // 3. Combine, format, and sort by date
+    const activity = [
+      ...enrollments.map(e => ({ 
+        type: 'enroll', 
+        title: `Enrolled in ${e.course.title}`, 
+        date: e.createdAt 
+      })),
+      ...progress.map(p => ({ 
+        type: 'progress', 
+        title: 'Completed a lesson', 
+        date: p.updatedAt 
+      }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return activity;
   }
 }

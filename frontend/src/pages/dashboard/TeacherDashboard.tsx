@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, Star, ExternalLink, Trophy, Filter, Lock, Send, BarChart, CheckCircle, AlertCircle } from 'lucide-react';
+import { 
+  Users, Save, Check, X, PlusCircle, Clock, Loader2, FileText, 
+  Star, ExternalLink, Trophy, Filter, Lock, Send, AlertCircle, 
+  Layers, BookOpen, CheckCircle, ArrowRight
+} from 'lucide-react';
 
 interface Assignment { id: number; title: string; status: string; submissionUrl?: string; grade?: string; feedback?: string; }
 interface Student { id: number; name: string; email: string; branch?: string; rollNumber?: string; status: 'present' | 'absent' | 'late'; assignments: Assignment[]; }
@@ -12,10 +16,21 @@ const TeacherDashboard = () => {
   const [dashboardOptions, setDashboardOptions] = useState<DashboardOption[]>([]);
   const [selectedOption, setSelectedOption] = useState<DashboardOption | null>(null);
   
+  // Course State for LMS
+  const [courses, setCourses] = useState<any[]>([]);
+  
   // UI State
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'attendance' | 'assignments' | 'gradebook'>('attendance');
+  
+  // Tab Memory Fix
+  const [activeTab, setActiveTab] = useState<'attendance' | 'assignments' | 'gradebook' | 'courses'>(
+    (localStorage.getItem('teacherTab') as any) || 'attendance'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('teacherTab', activeTab);
+  }, [activeTab]);
 
   // Grading Modal State
   const [selectedWork, setSelectedWork] = useState<{student: Student, work: Assignment} | null>(null);
@@ -32,7 +47,7 @@ const TeacherDashboard = () => {
 
   const fetchMyData = async () => {
     try {
-      // 🚀 Updated API URL here
+      // 1. Fetch Students & Classes
       const res = await fetch(`${import.meta.env.VITE_API_URL}/teacher/${teacherId}/students`);
       const data = await res.json();
       
@@ -42,6 +57,11 @@ const TeacherDashboard = () => {
         setDashboardOptions(data.dashboardOptions);
         if (data.dashboardOptions.length > 0) setSelectedOption(data.dashboardOptions[0]);
       }
+
+      // 2. Fetch Published LMS Courses
+      const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`);
+      if (courseRes.ok) setCourses(await courseRes.json());
+
     } catch (error) { 
       console.error(error); 
     } finally { 
@@ -87,7 +107,6 @@ const TeacherDashboard = () => {
     try {
       const date = new Date().toISOString();
       for (const student of filteredStudents) {
-        // 🚀 Updated API URL here
         await fetch(`${import.meta.env.VITE_API_URL}/attendance`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
@@ -112,7 +131,6 @@ const TeacherDashboard = () => {
 
     try {
       for (const student of filteredStudents) {
-        // 🚀 Updated API URL here
         await fetch(`${import.meta.env.VITE_API_URL}/assignment`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
@@ -142,7 +160,6 @@ const TeacherDashboard = () => {
     if (resultsPayload.length === 0) return alert("Please enter marks for at least one student.");
 
     try {
-        // 🚀 Updated API URL here
         await fetch(`${import.meta.env.VITE_API_URL}/exam/publish-bulk`, {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
@@ -159,7 +176,6 @@ const TeacherDashboard = () => {
   const handleGradeSubmit = async () => {
     if (!selectedWork) return;
     try {
-      // 🚀 Updated API URL here
       await fetch(`${import.meta.env.VITE_API_URL}/assignment/${selectedWork.work.id}/grade`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -178,7 +194,7 @@ const TeacherDashboard = () => {
   if (loading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-indigo-600" size={40} /> <p className="font-bold text-slate-500">Loading Faculty Dashboard...</p></div>;
 
   return (
-    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-32 pt-4 relative min-h-screen">
+    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-32 pt-4 relative min-h-screen px-4 md:px-0">
       
       {/* 1. HEADER & CLASS ANALYTICS */}
       <div className="bg-slate-900 text-white rounded-[2.5rem] shadow-2xl p-8 relative overflow-hidden">
@@ -191,7 +207,7 @@ const TeacherDashboard = () => {
           <div className="flex items-center gap-3 bg-white/10 border border-white/20 rounded-2xl p-2 backdrop-blur-md w-full md:w-auto">
              <Filter size={18} className="ml-3 text-slate-300"/>
              <select 
-               className="bg-transparent font-bold text-white outline-none cursor-pointer pr-4 py-2 appearance-none"
+               className="bg-transparent font-bold text-white outline-none cursor-pointer pr-4 py-2 appearance-none w-full"
                onChange={(e) => {
                  const selected = dashboardOptions.find(opt => opt.label === e.target.value);
                  setSelectedOption(selected || null);
@@ -226,7 +242,7 @@ const TeacherDashboard = () => {
             <h2 className="text-2xl font-black text-amber-300 mt-1">{pendingGradingCount} <span className="text-sm font-normal text-slate-500">Items</span></h2>
           </div>
         </div>
-        <div className="absolute right-0 top-0 h-full w-96 bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 h-full w-full md:w-96 bg-gradient-to-l from-indigo-500/20 to-transparent pointer-events-none" />
       </div>
 
       {/* 2. NAVIGATION TABS */}
@@ -234,12 +250,13 @@ const TeacherDashboard = () => {
         {[
           { id: 'attendance', label: 'Daily Attendance' },
           { id: 'assignments', label: 'Manage Assignments' },
-          { id: 'gradebook', label: 'Class Gradebook' }
+          { id: 'gradebook', label: 'Class Gradebook' },
+          { id: 'courses', label: 'Course Catalog' }
         ].map(tab => (
            <button 
              key={tab.id}
              onClick={() => setActiveTab(tab.id as any)} 
-             className={`pb-4 px-6 text-sm font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+             className={`whitespace-nowrap pb-4 px-6 text-sm font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
            >
              {tab.label}
            </button>
@@ -249,18 +266,18 @@ const TeacherDashboard = () => {
       {/* --- TAB 1: ATTENDANCE CONTENT --- */}
       {activeTab === 'attendance' && (
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
+          <div className="px-6 md:px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
             <div>
               <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2">
                 <Users size={18} className="text-indigo-600" /> Register: {selectedOption?.className || "Select Class"}
               </h3>
             </div>
             {selectedOption?.role === "class_teacher" ? (
-              <button onClick={saveAttendance} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-200">
+              <button onClick={saveAttendance} disabled={saving} className="w-full md:w-auto justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-200">
                 {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} {saving ? 'Syncing...' : 'Save Register'}
               </button>
             ) : (
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-black bg-slate-100 text-slate-400 px-4 py-2 rounded-xl border border-slate-200 cursor-not-allowed">
+              <div className="w-full md:w-auto flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest font-black bg-slate-100 text-slate-400 px-4 py-3 rounded-xl border border-slate-200 cursor-not-allowed">
                 <Lock size={14} /> View Only Access
               </div>
             )}
@@ -270,16 +287,16 @@ const TeacherDashboard = () => {
               <div className="p-10 text-center text-slate-400 font-medium">No students enrolled in this class.</div> 
             ) : (
               filteredStudents.map((student, index) => (
-                <div key={student.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                <div key={student.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
                   <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm border border-slate-200">{student.rollNumber || index + 1}</div>
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center font-black text-sm border border-slate-200 shrink-0">{student.rollNumber || index + 1}</div>
                     <div>
                       <h4 className="font-bold text-slate-800 text-base">{student.name}</h4>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{student.email}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1 truncate max-w-[200px] md:max-w-none">{student.email}</p>
                     </div>
                   </div>
                   <div className={`cursor-pointer ${selectedOption?.role !== "class_teacher" ? 'opacity-50 pointer-events-none' : ''}`} onClick={() => toggleStatus(student.id)}>
-                    <span className={`px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 w-32 justify-center uppercase tracking-widest border transition-all
+                    <span className={`px-5 py-3 md:py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 w-full sm:w-32 justify-center uppercase tracking-widest border transition-all
                       ${student.status === 'present' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : student.status === 'absent' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                       {student.status === 'present' && <Check size={14} />} 
                       {student.status === 'absent' && <X size={14} />} 
@@ -297,15 +314,15 @@ const TeacherDashboard = () => {
       {/* --- TAB 2: ASSIGNMENTS CONTENT --- */}
       {activeTab === 'assignments' && (
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
+          <div className="px-6 md:px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/30">
             <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2">
               <FileText size={18} className="text-indigo-600" /> Grading Queue
             </h3>
-            <button onClick={assignHomework} className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
+            <button onClick={assignHomework} className="w-full md:w-auto justify-center bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all">
               <PlusCircle size={16} /> New Assignment
             </button>
           </div>
-          <div className="p-8 flex flex-col gap-6">
+          <div className="p-6 md:p-8 flex flex-col gap-6">
             {filteredStudents.length === 0 ? ( 
               <div className="text-center text-slate-400 font-medium">No students available for assignments.</div> 
             ) : (
@@ -322,11 +339,11 @@ const TeacherDashboard = () => {
                               <Star size={14} fill="currentColor" /> {work.grade}
                             </div>
                           ) : work.status === 'submitted' ? (
-                            <button onClick={() => setSelectedWork({ student, work })} className="text-white font-black bg-indigo-600 px-5 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 self-start md:self-auto">
+                            <button onClick={() => setSelectedWork({ student, work })} className="w-full md:w-auto text-white font-black bg-indigo-600 px-5 py-3 md:py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 self-start md:self-auto">
                               Grade Now
                             </button>
                           ) : (
-                            <span className="text-slate-400 text-[10px] uppercase font-black tracking-widest px-4 py-2.5 bg-white border border-slate-200 rounded-xl self-start md:self-auto">
+                            <span className="w-full md:w-auto text-center text-slate-400 text-[10px] uppercase font-black tracking-widest px-4 py-3 md:py-2.5 bg-white border border-slate-200 rounded-xl self-start md:self-auto">
                               Pending Submission
                             </span>
                           )}
@@ -344,7 +361,7 @@ const TeacherDashboard = () => {
       {/* --- TAB 3: GRADEBOOK CONTENT --- */}
       {activeTab === 'gradebook' && (
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="p-8 border-b border-slate-100 bg-amber-50/30">
+          <div className="p-6 md:p-8 border-b border-slate-100 bg-amber-50/30">
             <h3 className="font-black text-slate-800 uppercase text-sm tracking-widest flex items-center gap-2 mb-6">
                <Trophy size={20} className="text-amber-500" /> Result Publisher
             </h3>
@@ -388,50 +405,105 @@ const TeacherDashboard = () => {
             </div>
           </div>
 
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50/50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
-              <tr>
-                <th className="p-6 pl-8">Identity</th>
-                <th className="p-6 pr-8 text-right">Marks Obtained</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredStudents.length === 0 ? ( 
-                <tr><td colSpan={2} className="p-10 text-center text-slate-400 font-medium">No students available.</td></tr> 
-              ) : (
-                filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-6 pl-8">
-                       <div className="font-bold text-slate-800 text-base">{student.name}</div>
-                       <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Roll No: {student.rollNumber || '-'}</div>
-                    </td>
-                    <td className="p-6 pr-8 flex justify-end">
-                      <input 
-                        type="number" 
-                        className="w-full max-w-[120px] p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-black text-indigo-700 text-lg text-center bg-slate-50 transition-all" 
-                        placeholder="0" 
-                        value={marks[student.id] || ''} 
-                        onChange={(e) => setMarks({ ...marks, [student.id]: e.target.value })} 
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          <div className="p-8 bg-slate-50/50 border-t border-slate-100">
-            <button onClick={handleBulkPublish} className="w-full p-5 bg-slate-900 text-white text-xs uppercase tracking-widest font-black rounded-2xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all flex justify-center items-center gap-3">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-sm text-left min-w-[500px]">
+              <thead className="bg-slate-50/50 text-slate-400 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
+                <tr>
+                  <th className="p-6 pl-8">Identity</th>
+                  <th className="p-6 pr-8 text-right">Marks Obtained</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredStudents.length === 0 ? ( 
+                  <tr><td colSpan={2} className="p-10 text-center text-slate-400 font-medium">No students available.</td></tr> 
+                ) : (
+                  filteredStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-6 pl-8">
+                         <div className="font-bold text-slate-800 text-base">{student.name}</div>
+                         <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Roll No: {student.rollNumber || '-'}</div>
+                      </td>
+                      <td className="p-6 pr-8 flex justify-end">
+                        <input 
+                          type="number" 
+                          className="w-full max-w-[120px] p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none font-black text-indigo-700 text-lg text-center bg-slate-50 transition-all" 
+                          placeholder="0" 
+                          value={marks[student.id] || ''} 
+                          onChange={(e) => setMarks({ ...marks, [student.id]: e.target.value })} 
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-6 md:p-8 bg-slate-50/50 border-t border-slate-100">
+            <button onClick={handleBulkPublish} className="w-full p-4 md:p-5 bg-slate-900 text-white text-xs uppercase tracking-widest font-black rounded-2xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all flex justify-center items-center gap-3">
               <Send size={18} /> Publish to Student Portals
             </button>
           </div>
         </div>
       )}
 
+      {/* --- NEW TAB 4: COURSES (LMS) CONTENT --- */}
+      {activeTab === 'courses' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 p-6 md:p-8 rounded-[2.5rem] text-white shadow-xl gap-6">
+             <div>
+                <h3 className="text-2xl font-black">Course Catalog</h3>
+                <p className="text-slate-400 text-sm font-medium mt-1">Manage your video lectures and publish new curriculum.</p>
+             </div>
+             
+             {/* Link to the TeacherBuilder page */}
+             <button 
+                onClick={() => window.location.href = '/teacher/build'} 
+                className="w-full md:w-auto justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
+             >
+                <PlusCircle size={18} /> Create New Course
+             </button>
+          </div>
+
+          {courses.length === 0 ? (
+             <div className="text-center p-12 bg-white rounded-[2rem] border border-slate-200 text-slate-500 shadow-sm font-bold">
+               You haven't published any courses yet. Click the button above to start building!
+             </div>
+          ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {courses.map(course => (
+                 <div key={course.id} className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col h-full group">
+                   <div className="relative h-44 overflow-hidden bg-slate-100">
+                     <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+                     <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
+                        <span className="bg-emerald-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-lg flex items-center gap-1">
+                          <CheckCircle size={12} /> Published
+                        </span>
+                        <span className="text-white text-xs font-bold flex items-center gap-1"><Layers size={14} /> {course.modules?.length || 0} Modules</span>
+                     </div>
+                   </div>
+                   
+                   <div className="p-6 flex-1 flex flex-col justify-between">
+                     <div>
+                       <h3 className="font-black text-lg text-slate-800 mb-2 leading-tight">{course.title}</h3>
+                       <p className="text-slate-500 text-xs line-clamp-2 leading-relaxed mb-4">{course.description}</p>
+                     </div>
+                     <button className="w-full bg-slate-50 text-slate-600 font-black py-3 rounded-xl text-xs flex justify-center items-center gap-2 border border-slate-100 hover:bg-slate-100 transition-colors">
+                        <ArrowRight size={14} /> View Details
+                     </button>
+                   </div>
+                 </div>
+               ))}
+             </div>
+          )}
+        </div>
+      )}
+
       {/* --- GRADING MODAL --- */}
       {selectedWork && (
         <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 relative animate-in zoom-in-95">
-            <button onClick={() => setSelectedWork(null)} className="absolute right-8 top-8 text-slate-300 hover:text-slate-600 transition-colors"><X size={24} /></button>
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 md:p-10 relative animate-in zoom-in-95">
+            <button onClick={() => setSelectedWork(null)} className="absolute right-6 top-6 text-slate-300 hover:text-slate-600 transition-colors"><X size={24} /></button>
             <h2 className="text-2xl font-black mb-1 text-slate-800">Review Work</h2>
             <p className="text-slate-400 text-sm font-medium mb-8">{selectedWork.student.name} • {selectedWork.work.title}</p>
             
@@ -446,10 +518,10 @@ const TeacherDashboard = () => {
             )}
             
             <label className="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Assign Score</label>
-            <input className="w-full p-4 border border-slate-100 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-bold" placeholder="e.g., 95/100 or A+" value={grade} onChange={(e) => setGrade(e.target.value)} />
+            <input className="w-full p-4 border border-slate-100 rounded-2xl mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-bold text-slate-800" placeholder="e.g., 95/100 or A+" value={grade} onChange={(e) => setGrade(e.target.value)} />
             
             <label className="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Constructive Feedback</label>
-            <textarea className="w-full p-4 border border-slate-100 rounded-2xl mb-8 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium text-sm" rows={4} placeholder="Excellent reasoning, but check your formatting..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+            <textarea className="w-full p-4 border border-slate-100 rounded-2xl mb-8 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium text-sm text-slate-800" rows={4} placeholder="Excellent reasoning, but check your formatting..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
             
             <button onClick={handleGradeSubmit} className="w-full p-4 bg-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
                Confirm Grade

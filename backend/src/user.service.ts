@@ -10,7 +10,8 @@ export class UserService {
   async getUserById(id: number) {
     return await prisma.user.findUnique({
       where: { id: id },
-      include: { assignments: true, attendance: true }
+      // 👇 We added examResults: true right here!
+      include: { assignments: true, attendance: true, examResults: true } 
     });
   }
 
@@ -22,32 +23,47 @@ export class UserService {
     });
   }
 
-  // 3. CREATE NEW USER
+  // 3. CREATE NEW USER (Updated with Bulletproof Fallbacks & Logs)
   async createUser(data: any) {
+    console.log("📥 Registration Data Received from Frontend:", data);
+
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new Error('User already exists');
 
-    return await prisma.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        role: data.role,
-        branch: data.branch || "General",
-        assignments: data.role === 'student' ? {
-          create: [{ title: 'Welcome to NexusEdu', subject: 'General', dueDate: new Date() }]
-        } : undefined
-      }
-    });
+    try {
+      return await prisma.user.create({
+        data: {
+          name: data.name || "Test User",
+          email: data.email,
+          // Handle both 'password' and 'pass' depending on what React sends
+          password: data.password || data.pass, 
+          // Default to student if the frontend forgets to send a role
+          role: data.role || 'student', 
+          branch: data.branch || "General",
+          assignments: (data.role === 'student' || !data.role) ? {
+            create: [{ title: 'Welcome to NexusEdu', subject: 'General', dueDate: new Date() }]
+          } : undefined
+        }
+      });
+    } catch (err) {
+      console.error("❌ PRISMA DATABASE ERROR:", err);
+      throw err;
+    }
   }
 
-  // 4. VALIDATE USER
+  // 4. VALIDATE USER (Updated with Logs)
   async validateUser(email: string, pass: string) {
+    console.log(`🔐 Login Attempt: Email=${email} | Pass=${pass}`);
+    
     const user = await prisma.user.findUnique({ where: { email: email } });
+    
+    // Check if the user exists and the passwords match
     if (user && user.password === pass) {
       const { password, ...result } = user;
       return result;
     }
+    
+    console.log("❌ Login Failed: User not found or password did not match.");
     return null;
   }
 
@@ -75,16 +91,17 @@ export class UserService {
     });
   }
 
-  // 7. SUBMIT ASSIGNMENT (Updated for File Upload)
+  // 7. SUBMIT ASSIGNMENT 
   async submitAssignment(assignmentId: number, fileUrl?: string) {
     return await prisma.assignment.update({
       where: { id: assignmentId },
       data: { 
         status: 'submitted',
-        submissionUrl: fileUrl || null // Save the link if provided
+        submissionUrl: fileUrl || null 
       }
     });
   }
+
   // 8. GRADE ASSIGNMENT
   async gradeAssignment(assignmentId: number, grade: string, feedback: string) {
     return await prisma.assignment.update({
@@ -124,7 +141,8 @@ export class UserService {
     await prisma.assignment.deleteMany({ where: { userId: id } });
     return await prisma.user.delete({ where: { id: id } });
   }
-  // 12. PUBLISH EXAM RESULT (For Teachers)
+
+  // 12. PUBLISH EXAM RESULT 
   async publishExamResult(data: { studentId: number; examName: string; score: number; maxScore: number }) {
     return await prisma.examResult.create({
       data: {
@@ -136,29 +154,30 @@ export class UserService {
     });
   }
 
-  // 13. GET STUDENT RESULTS (For Students)
+  // 13. GET STUDENT RESULTS
   async getStudentResults(studentId: number) {
     return await prisma.examResult.findMany({
       where: { studentId: studentId },
       orderBy: { date: 'desc' }
     });
   }
+
   // 14. BULK PUBLISH RESULTS
   async publishBulkResults(results: { studentId: number; examName: string; score: number; maxScore: number }[]) {
-    // Prisma's createMany is super fast for this
     return await prisma.examResult.createMany({
       data: results
     });
   }
-  // 15. GET ALL EXAM RESULTS (For Admin)
+
+  // 15. GET ALL EXAM RESULTS
   async getAllExamResults() {
     return await prisma.examResult.findMany({
       include: { 
         student: { 
-          select: { name: true, email: true } // We need the name to show in the table
+          select: { name: true, email: true } 
         } 
       },
-      orderBy: { date: 'desc' } // Newest exams first
+      orderBy: { date: 'desc' } 
     });
   }
 }

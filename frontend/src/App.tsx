@@ -11,10 +11,24 @@ import TeacherDashboard from './pages/dashboard/TeacherDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import AgentChat from './pages/agents/AgentChat';
 import SchoolEvents from './pages/dashboard/SchoolEvents';
-
+import TeacherBuilder from './pages/dashboard/TeacherBuilder'; // <-- Added LMS Builder
+import CoursePlayer from './pages/CoursePlayer'; // <-- Added Course Player
 const LayoutWrapper = ({ children }: { children: React.ReactNode }) => (
   <GlassLayout>{children}</GlassLayout>
 );
+
+// 🚦 The Smart Traffic Cop: Sorts users when they hit the root URL "/"
+const RootRedirect = () => {
+  const userId = localStorage.getItem('userId');
+  const role = localStorage.getItem('role');
+
+  if (!userId) return <Navigate to="/Login" replace />; // Not logged in? Go to Login.
+
+  // Logged in? Go to your specific dashboard!
+  if (role === 'admin') return <Navigate to="/dashboard/admin" replace />;
+  if (role === 'teacher') return <Navigate to="/dashboard/teacher" replace />;
+  return <Navigate to="/dashboard/student" replace />; // Default for students
+};
 
 function App() {
   return (
@@ -23,6 +37,9 @@ function App() {
         {/* Public Routes */}
         <Route path="/Login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+
+        {/* 🚦 Smart Redirect Route */}
+        <Route path="/" element={<RootRedirect />} />
 
         {/* 🛡️ Protected Student Routes */}
         <Route path="/dashboard/student" element={
@@ -35,6 +52,13 @@ function App() {
         <Route path="/dashboard/teacher" element={
           <ProtectedRoute allowedRoles={['teacher']}>
             <LayoutWrapper><TeacherDashboard /></LayoutWrapper>
+          </ProtectedRoute>
+        } />
+
+        {/* 🛡️ NEW: LMS Teacher Course Builder Route */}
+        <Route path="/teacher/build" element={
+          <ProtectedRoute allowedRoles={['teacher']}>
+            <LayoutWrapper><TeacherBuilder /></LayoutWrapper>
           </ProtectedRoute>
         } />
 
@@ -64,8 +88,11 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* Redirect empty path to login or dashboard based on status */}
-        <Route path="/" element={<Navigate to="/Login" replace />} />
+        <Route path="/player/:courseId" element={
+  <ProtectedRoute allowedRoles={['student']}>
+    <LayoutWrapper><CoursePlayer /></LayoutWrapper>
+  </ProtectedRoute>
+} />
       </Routes>
     </Router>
   );

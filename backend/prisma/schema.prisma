@@ -12,12 +12,13 @@ model User {
   email       String       @unique
   password    String
   name        String
-  role        String       // "student", "teacher", "admin"
+  role        String // "student", "teacher", "admin"
   branch      String?
   // Relations: A user can have many assignments and attendance records
   assignments Assignment[]
   attendance  Attendance[]
   examResults ExamResult[]
+  messages       Message[]
 }
 
 model Assignment {
@@ -27,26 +28,107 @@ model Assignment {
   dueDate       DateTime
   status        String   @default("pending")
   submissionUrl String?
-  grade         String?  // <--- NEW: Store "A+" or "90/100"
-  feedback      String?  // <--- NEW: Teacher's comments
+  grade         String? // <--- NEW: Store "A+" or "90/100"
+  feedback      String? // <--- NEW: Teacher's comments
   userId        Int
   user          User     @relation(fields: [userId], references: [id])
 }
 
 model Attendance {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @default(now())
-  status    String   // "present", "absent", "late"
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  id     Int      @id @default(autoincrement())
+  date   DateTime @default(now())
+  status String // "present", "absent", "late"
+  userId Int
+  user   User     @relation(fields: [userId], references: [id])
 }
 
 model ExamResult {
   id        Int      @id @default(autoincrement())
-  examName  String   // e.g., "Finals Physics"
-  score     Int      // e.g., 85
-  maxScore  Int      // e.g., 100
+  examName  String // e.g., "Finals Physics"
+  score     Int // e.g., 85
+  maxScore  Int // e.g., 100
   date      DateTime @default(now())
   studentId Int
   student   User     @relation(fields: [studentId], references: [id])
+}
+
+model Course {
+  id           String   @id @default(uuid())
+  title        String
+  description  String   @db.Text
+  instructorId String   @default("Teacher123")
+  thumbnail    String   @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600")
+  createdAt    DateTime @default(now())
+
+  modules     Module[]
+  enrollments Enrollment[] // Links course to enrolled students
+}
+
+model Module {
+  id       String   @id @default(uuid())
+  title    String
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+}
+
+model Lesson {
+  id       String @id @default(uuid())
+  title    String
+  videoUrl String
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  // ADD THIS LINE
+  comments       Comment[]
+  LessonProgress LessonProgress[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  createdAt DateTime @default(now())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId    Int
+  userName  String
+}
+
+// NEW: Tracks which student is taking which course
+model Enrollment {
+  id        String   @id @default(uuid())
+  userId    Int
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  // Prevents a student from enrolling in the same course twice
+  @@unique([userId, courseId])
+}
+
+// NEW: Tracks exactly which videos the student has finished
+model LessonProgress {
+  id          String  @id @default(uuid())
+  userId      Int
+  lessonId    String
+  lesson      Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  isCompleted Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  
+  // Who sent it?
+  senderId  Int
+  sender    User     @relation(fields: [senderId], references: [id])
+  
+  // Which class/room is this for? (e.g., "10-A")
+  room      String   
+
+  @@index([room])
 }
