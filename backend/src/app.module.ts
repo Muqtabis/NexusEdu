@@ -4,16 +4,21 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { UserService } from './user.service';
 import { AiService } from './ai/ai.service';
+import { PrismaService } from './prisma.service';
+import { AuthModule } from './auth/auth.module';
+import { EmailService } from './email/email.service';
+import { MessageService } from './message.service';
 
 @Module({
   imports: [
-    // This allows access to files at http://localhost:4000/uploads/filename.pdf
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
+    AuthModule,
   ],
   controllers: [AppController],
-  providers: [UserService, AiService],
+  providers: [PrismaService, UserService, AiService, EmailService, MessageService],
+  exports: [PrismaService],
 })
 export class AppModule {}

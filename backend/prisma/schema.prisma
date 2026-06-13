@@ -14,11 +14,14 @@ model User {
   name        String
   role        String // "student", "teacher", "admin"
   branch      String?
+  rollNumber  String?
   // Relations: A user can have many assignments and attendance records
   assignments Assignment[]
   attendance  Attendance[]
   examResults ExamResult[]
-  messages       Message[]
+  sentMessages    Message[]  @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  sentComments Comment[]   @relation("CommentAuthor")
 }
 
 model Assignment {
@@ -91,6 +94,7 @@ model Comment {
   lessonId  String
   lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   userId    Int
+  user      User     @relation("CommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
   userName  String
 }
 
@@ -125,10 +129,19 @@ model Message {
   
   // Who sent it?
   senderId  Int
-  sender    User     @relation(fields: [senderId], references: [id])
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   
-  // Which class/room is this for? (e.g., "10-A")
+  // Who receives it?
+  recipientId Int
+  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  
+  // Read status
+  isRead    Boolean  @default(false)
+  
+  // Which room/thread is this for? (e.g., "1-2" for user 1 and user 2)
   room      String   
 
   @@index([room])
+  @@index([senderId])
+  @@index([recipientId])
 }
