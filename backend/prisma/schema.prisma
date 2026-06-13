@@ -14,11 +14,13 @@ model User {
   name        String
   role        String // "student", "teacher", "admin"
   branch      String?
+  rollNumber  String?
   // Relations: A user can have many assignments and attendance records
   assignments Assignment[]
   attendance  Attendance[]
   examResults ExamResult[]
-  messages       Message[]
+  messages    Message[]
+  sentComments Comment[]   @relation("CommentAuthor")
 }
 
 model Assignment {
@@ -91,6 +93,7 @@ model Comment {
   lessonId  String
   lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   userId    Int
+  user      User     @relation("CommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
   userName  String
 }
 

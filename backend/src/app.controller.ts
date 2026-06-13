@@ -4,15 +4,14 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { UserService } from './user.service';
 import { AiService } from './ai/ai.service';
-import { PrismaClient } from '@prisma/client'; // <-- Added Prisma Import
-
-const prisma = new PrismaClient(); // <-- Instantiated Prisma for the LMS
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly userService: UserService,
-    private readonly aiService: AiService
+    private readonly aiService: AiService,
+    private readonly prisma: PrismaService
   ) {}
 
   // 1. LOGIN
@@ -144,7 +143,7 @@ export class AppController {
 // 1. GET ALL COURSES (Powers the Student Dashboard Catalog)
   @Get('api/courses')
   async getAllCourses() {
-    return await prisma.course.findMany({
+    return await this.prisma.course.findMany({
       include: {
         modules: {
           include: { lessons: true }
@@ -157,7 +156,7 @@ export class AppController {
   // 2. GET ONE COURSE (Powers the Course Player)
   @Get('api/courses/:id')
   async getOneCourse(@Param('id') id: string) {
-    return await prisma.course.findUnique({
+    return await this.prisma.course.findUnique({
       where: { id: id },
       include: {
         modules: {
@@ -169,10 +168,10 @@ export class AppController {
     });
   }
   // 18. CREATE NEW COURSE (Teacher Builder)
- @Post('api/courses')
+  @Post('api/courses')
   async createCourse(@Body() body: any) {
     // This tells Prisma to create the Course, the Module, and the Lesson all at once!
-    return await prisma.course.create({
+    return await this.prisma.course.create({
       data: {
         title: body.title,
         description: body.description,
@@ -194,7 +193,7 @@ export class AppController {
   // 19. ENROLL IN A COURSE
   @Post('api/courses/:courseId/enroll')
   async enrollCourse(@Param('courseId') courseId: string, @Body() body: { userId: number }) {
-    return await prisma.enrollment.create({
+    return await this.prisma.enrollment.create({
       data: { courseId, userId: body.userId }
     });
   }
@@ -202,7 +201,7 @@ export class AppController {
   // 20. GET STUDENT'S ENROLLED COURSES & PROGRESS
   @Get('api/students/:userId/learning')
   async getStudentLearning(@Param('userId') userId: string) {
-    const enrollments = await prisma.enrollment.findMany({
+    const enrollments = await this.prisma.enrollment.findMany({
       where: { userId: Number(userId) },
       include: { 
         course: { 
@@ -211,7 +210,7 @@ export class AppController {
       }
     });
 
-    const progress = await prisma.lessonProgress.findMany({
+    const progress = await this.prisma.lessonProgress.findMany({
       where: { userId: Number(userId) }
     });
 
@@ -221,7 +220,7 @@ export class AppController {
   // 21. MARK LESSON AS COMPLETE
   @Post('api/progress/complete')
   async completeLesson(@Body() body: { userId: number; lessonId: string }) {
-    return await prisma.lessonProgress.upsert({
+    return await this.prisma.lessonProgress.upsert({
       where: { userId_lessonId: { userId: body.userId, lessonId: body.lessonId } },
       update: { isCompleted: true },
       create: { userId: body.userId, lessonId: body.lessonId, isCompleted: true }
@@ -230,7 +229,7 @@ export class AppController {
   // 22. LESSON COMMENTS
   @Get('api/lessons/:lessonId/comments')
   async getComments(@Param('lessonId') lessonId: string) {
-    const data = await prisma.comment.findMany({
+    const data = await this.prisma.comment.findMany({
       where: { lessonId },
       orderBy: { createdAt: 'desc' }
     });
@@ -239,7 +238,7 @@ export class AppController {
 // 23. POST A COMMENT
   @Post('api/lessons/:lessonId/comments')
   async postComment(@Param('lessonId') lessonId: string, @Body() body: any) {
-    return await prisma.comment.create({
+    return await this.prisma.comment.create({
       data: {
         text: body.text,
         userName: body.userName,
@@ -254,7 +253,7 @@ export class AppController {
     const uid = Number(userId);
     
     // 1. Fetch recent course enrollments
-    const enrollments = await prisma.enrollment.findMany({
+    const enrollments = await this.prisma.enrollment.findMany({
       where: { userId: uid },
       orderBy: { createdAt: 'desc' },
       include: { course: true },
@@ -262,7 +261,7 @@ export class AppController {
     });
 
     // 2. Fetch recently completed lessons
-    const progress = await prisma.lessonProgress.findMany({
+    const progress = await this.prisma.lessonProgress.findMany({
       where: { userId: uid },
       orderBy: { updatedAt: 'desc' },
       take: 3
