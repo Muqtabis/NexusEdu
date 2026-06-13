@@ -1,40 +1,101 @@
-import { Controller, Post, Get, Delete, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Put, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { JwtService } from '@nestjs/jwt';
 import { UserService } from './user.service';
 import { AiService } from './ai/ai.service';
 import { PrismaService } from './prisma.service';
+import { JwtAuthGuard } from './auth/jwt.guard';
+import { EmailService } from './email/email.service';
+import { MessageService } from './message.service';
+import { CreateUserDto } from './dtos/create-user.dto';
+import { CreateCourseDto } from './dtos/create-course.dto';
+import { SubmitAssignmentDto } from './dtos/submit-assignment.dto';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly userService: UserService,
     private readonly aiService: AiService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
+    private readonly messageService: MessageService,
   ) {}
 
-  // 1. LOGIN
-  // 1. LOGIN
+  // ==========================================
+  // CSRF TOKEN ENDPOINT (Must come first)
+  // ==========================================
+  @Get('csrf-token')
+  generateCsrfToken() {
+    const token = Math.random().toString(36).substring(2, 15) +
+                  Math.random().toString(36).substring(2, 15);
+    return { token };
+  }
+
+  // ==========================================
+  // AUTHENTICATION WITH JWT
+  // ==========================================
+
+  // 1. LOGIN - Returns JWT Token
   @Post('login')
   async login(@Body() body: { email: string; pass?: string; password?: string }) {
-    // This safely grabs the password whether React calls it 'pass' or 'password'
     const actualPassword = body.password || body.pass;
     
     const user = await this.userService.validateUser(body.email, actualPassword);
     if (!user) throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
-    return user;
+    
+    // Generate JWT token
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const token = this.jwtService.sign(payload);
+    
+    return { 
+      ...user, 
+      token,
+      expiresIn: '24h'
+    };
   }
 
-  // 2. REGISTER
+  // 2. REGISTER - New user with JWT
   @Post('register')
-  async register(@Body() body: any) {
+  async register(@Body() body: CreateUserDto) {
     try {
-      return await this.userService.createUser(body);
+      const user = await this.userService.createUser(body);
+      
+      // Send welcome email
+      await this.emailService.sendWelcomeEmail(user.email, user.name).catch(err => 
+        console.log('Email send error (non-blocking):', err.message)
+      );
+      
+      // Generate JWT token
+      const payload = { sub: user.id, email: user.email, role: user.role };
+      const token = this.jwtService.sign(payload);
+      
+      return { 
+        ...user, 
+        token,
+        expiresIn: '24h'
+      };
     } catch (error) {
       throw new HttpException('Email already registered', HttpStatus.BAD_REQUEST);
     }
   }
+
+  // 3. REFRESH TOKEN
+  @Post('auth/refresh')
+  @UseGuards(JwtAuthGuard)
+  async refreshToken(@Req() req: any) {
+    const user = req.user;
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const token = this.jwtService.sign(payload);
+    
+    return { token, expiresIn: '24h' };
+  }
+
+  // ==========================================
+  // PROTECTED ROUTES (Require JWT)
+  // ==========================================
 
   // 3. DASHBOARD DATA
   @Get('dashboard/:id')
@@ -282,5 +343,137 @@ export class AppController {
     ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return activity;
+  }
+
+  // ==========================================
+  // COURSE EDIT / DELETE (PUT/DELETE)
+  // ==========================================
+
+  // 25. UPDATE COURSE
+  @Put('api/courses/:courseId')
+  @UseGuards(JwtAuthGuard)
+  async updateCourse(
+    @Param('courseId') courseId: string,
+    @Body() body: CreateCourseDto,
+    @Req() req: any,
+  ) {
+    // Check if user is teacher/admin
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+      throw new HttpException('Unauthorized', HttpStatus.FORBIDDEN);
+    }
+
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
+
+    if (!course) {
+      throw new HttpException('Course not found', HttpStatus.NOT_FOUND);
+    }
+
+    return await this.prisma.course.update({
+      where: { id: courseId },
+      data: {
+        title: body.name,
+        description: body.description,
+        thumbnail: body.image,
+      },
+      include: {
+        modules: { include: { lessons: true } },
+      },
+    });
+  }
+
+  // 26. DELETE COURSE (Cascade deletes modules & lessons)
+  @Delete('api/courses/:courseId')
+  @UseGuards(JwtAuthGuard)
+  async deleteCourse(
+    @Param('courseId') courseId: string,
+    @Req() req: any,
+  ) {
+    // Check if user is teacher/admin
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+      throw new HttpException('Unauthorized', HttpStatus.FORBIDDEN);
+    }
+
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: { modules: { include: { lessons: true } } },
+    });
+
+    if (!course) {
+      throw new HttpException('Course not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Cascade delete: lessons → modules → course
+    return await this.prisma.course.delete({
+      where: { id: courseId },
+    });
+  }
+
+  // ==========================================
+  // DIRECT MESSAGING
+  // ==========================================
+
+  // 27. GET MESSAGE THREADS (All conversations)
+  @Get('api/messages/threads')
+  @UseGuards(JwtAuthGuard)
+  async getMessageThreads(@Req() req: any) {
+    return await this.messageService.getMessageThreads(req.user.id);
+  }
+
+  // 28. GET MESSAGES WITH SPECIFIC USER
+  @Get('api/messages/thread/:userId')
+  @UseGuards(JwtAuthGuard)
+  async getThreadWithUser(
+    @Param('userId') userId: string,
+    @Req() req: any,
+  ) {
+    return await this.messageService.getThreadWithUser(
+      req.user.id,
+      Number(userId),
+    );
+  }
+
+  // 29. SEND MESSAGE
+  @Post('api/messages/send')
+  @UseGuards(JwtAuthGuard)
+  async sendMessage(
+    @Body() body: { recipientId: number; content: string },
+    @Req() req: any,
+  ) {
+    const message = await this.messageService.sendMessage(
+      req.user.id,
+      body.recipientId,
+      body.content,
+    );
+
+    // Send email notification
+    await this.emailService
+      .sendDirectMessageEmail(
+        message.recipient.email,
+        message.recipient.name,
+        req.user.name,
+        body.content.substring(0, 100),
+      )
+      .catch((err) =>
+        console.log('Email send error (non-blocking):', err.message),
+      );
+
+    return message;
+  }
+
+  // 30. MARK MESSAGE AS READ
+  @Put('api/messages/:messageId/read')
+  @UseGuards(JwtAuthGuard)
+  async markMessageAsRead(@Param('messageId') messageId: string) {
+    return await this.messageService.markAsRead(Number(messageId));
+  }
+
+  // 31. GET UNREAD MESSAGE COUNT
+  @Get('api/messages/unread/count')
+  @UseGuards(JwtAuthGuard)
+  async getUnreadCount(@Req() req: any) {
+    const count = await this.messageService.getUnreadCount(req.user.id);
+    return { unreadCount: count };
   }
 }
