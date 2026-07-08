@@ -1,12 +1,12 @@
-import { IsString, MinLength, IsOptional } from 'class-validator';
+import { IsString, MinLength, IsOptional } from "class-validator";
 
 export class CreateCourseDto {
   @IsString()
-  @MinLength(3, { message: 'Course name must be at least 3 characters' })
+  @MinLength(3, { message: "Course name must be at least 3 characters" })
   name: string;
 
   @IsString()
-  @MinLength(10, { message: 'Description must be at least 10 characters' })
+  @MinLength(10, { message: "Description must be at least 10 characters" })
   description: string;
 
   @IsOptional()

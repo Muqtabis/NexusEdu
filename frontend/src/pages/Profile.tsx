@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { User, Mail, ShieldCheck, GraduationCap, Loader2, BookOpen, Presentation, Settings, X, Key, AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 const Profile = () => {
   const [profileData, setProfileData] = useState<any>(null);
@@ -153,7 +154,8 @@ const Profile = () => {
   };
 
   // --- HANDLE LOGOUT ---
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.clear(); 
     window.location.href = '/login'; 
   };

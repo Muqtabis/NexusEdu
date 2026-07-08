@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, BookOpen, Layers, Hash } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -27,8 +28,7 @@ const Signup = () => {
     }
 
     try {
-      // 🚀 Updated API URL here
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/register`, {
+      const res = await apiFetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -36,7 +36,7 @@ const Signup = () => {
 
       if (res.ok) {
         alert("Account Created Successfully! Please Login.");
-        navigate('/');
+        navigate('/login');
       } else {
         const data = await res.json();
         setError(data.message || "Signup Failed");
@@ -126,7 +126,7 @@ const Signup = () => {
         </form>
 
         <p className="text-center mt-6 text-slate-500">
-          Already have an account? <a href="/" className="text-indigo-600 font-bold hover:underline">Login</a>
+          Already have an account? <a href="/login" className="text-indigo-600 font-bold hover:underline">Login</a>
         </p>
       </div>
     </div>
