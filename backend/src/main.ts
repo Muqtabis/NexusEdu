@@ -11,15 +11,16 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   });
   
-  // Add global validation pipe for input validation
+  // Adjusted validation pipe for smoother frontend integration
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Changed to false: allows extra data to be safely ignored rather than crashing
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
+      disableErrorMessages: false, 
     }),
   );
   

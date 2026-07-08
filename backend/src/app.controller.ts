@@ -201,7 +201,7 @@ export class AppController {
   // ==========================================
 
   // 17. GET ALL COURSES (Student Portal)
-// 1. GET ALL COURSES (Powers the Student Dashboard Catalog)
+  // 1. GET ALL COURSES (Powers the Student Dashboard Catalog)
   @Get('api/courses')
   async getAllCourses() {
     return await this.prisma.course.findMany({
@@ -228,6 +228,7 @@ export class AppController {
       }
     });
   }
+  
   // 18. CREATE NEW COURSE (Teacher Builder)
   @Post('api/courses')
   async createCourse(@Body() body: any) {
@@ -251,6 +252,7 @@ export class AppController {
       }
     });
   }
+  
   // 19. ENROLL IN A COURSE
   @Post('api/courses/:courseId/enroll')
   async enrollCourse(@Param('courseId') courseId: string, @Body() body: { userId: number }) {
@@ -287,6 +289,7 @@ export class AppController {
       create: { userId: body.userId, lessonId: body.lessonId, isCompleted: true }
     });
   }
+  
   // 22. LESSON COMMENTS
   @Get('api/lessons/:lessonId/comments')
   async getComments(@Param('lessonId') lessonId: string) {
@@ -296,7 +299,8 @@ export class AppController {
     });
     return data || []; // This ensures you ALWAYS return an array
   }
-// 23. POST A COMMENT
+  
+  // 23. POST A COMMENT
   @Post('api/lessons/:lessonId/comments')
   async postComment(@Param('lessonId') lessonId: string, @Body() body: any) {
     return await this.prisma.comment.create({
@@ -308,6 +312,7 @@ export class AppController {
       }
     });
   }
+  
   // 24. STUDENT ACTIVITY FEED
   @Get('api/students/:userId/activity')
   async getStudentActivity(@Param('userId') userId: string) {
@@ -441,23 +446,26 @@ export class AppController {
     @Body() body: { recipientId: number; content: string },
     @Req() req: any,
   ) {
-    const message = await this.messageService.sendMessage(
+    // 1. Tell TypeScript to treat this as 'any' to bypass the strict 'never' error
+    const message: any = await this.messageService.sendMessage(
       req.user.id,
       body.recipientId,
       body.content,
     );
 
-    // Send email notification
-    await this.emailService
-      .sendDirectMessageEmail(
-        message.recipient.email,
-        message.recipient.name,
-        req.user.name,
-        body.content.substring(0, 100),
-      )
-      .catch((err) =>
-        console.log('Email send error (non-blocking):', err.message),
-      );
+    // 2. Safety check: Only try to send an email if the recipient data exists
+    if (message && message.recipient) {
+      await this.emailService
+        .sendDirectMessageEmail(
+          message.recipient.email,
+          message.recipient.name,
+          req.user.name,
+          body.content.substring(0, 100),
+        )
+        .catch((err) =>
+          console.log('Email send error (non-blocking):', err.message),
+        );
+    }
 
     return message;
   }

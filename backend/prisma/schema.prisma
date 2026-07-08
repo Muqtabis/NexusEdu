@@ -8,20 +8,24 @@ datasource db {
 }
 
 model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  password    String
-  name        String
-  role        String // "student", "teacher", "admin"
-  branch      String?
-  rollNumber  String?
-  // Relations: A user can have many assignments and attendance records
-  assignments Assignment[]
-  attendance  Attendance[]
-  examResults ExamResult[]
-  sentMessages    Message[]  @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
-  sentComments Comment[]   @relation("CommentAuthor")
+  id               Int              @id @default(autoincrement())
+  email            String           @unique
+  password         String
+  name             String
+  role             String           // "student", "teacher", "admin"
+  branch           String?
+  rollNumber       String?
+  
+  // Relations
+  assignments      Assignment[]
+  attendance       Attendance[]
+  examResults      ExamResult[]
+  enrollments      Enrollment[]     
+  lessonProgress   LessonProgress[] 
+  
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  sentComments     Comment[]        @relation("CommentAuthor")
 }
 
 model Assignment {
@@ -31,8 +35,8 @@ model Assignment {
   dueDate       DateTime
   status        String   @default("pending")
   submissionUrl String?
-  grade         String? // <--- NEW: Store "A+" or "90/100"
-  feedback      String? // <--- NEW: Teacher's comments
+  grade         String?  // Store "A+" or "90/100"
+  feedback      String?  // Teacher's comments
   userId        Int
   user          User     @relation(fields: [userId], references: [id])
 }
@@ -40,31 +44,31 @@ model Assignment {
 model Attendance {
   id     Int      @id @default(autoincrement())
   date   DateTime @default(now())
-  status String // "present", "absent", "late"
+  status String   // "present", "absent", "late"
   userId Int
   user   User     @relation(fields: [userId], references: [id])
 }
 
 model ExamResult {
   id        Int      @id @default(autoincrement())
-  examName  String // e.g., "Finals Physics"
-  score     Int // e.g., 85
-  maxScore  Int // e.g., 100
+  examName  String   // e.g., "Finals Physics"
+  score     Int      // e.g., 85
+  maxScore  Int      // e.g., 100
   date      DateTime @default(now())
   studentId Int
   student   User     @relation(fields: [studentId], references: [id])
 }
 
 model Course {
-  id           String   @id @default(uuid())
+  id           String       @id @default(uuid())
   title        String
-  description  String   @db.Text
-  instructorId String   @default("Teacher123")
-  thumbnail    String   @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600")
-  createdAt    DateTime @default(now())
+  description  String       @db.Text
+  instructorId String       @default("Teacher123")
+  thumbnail    String       @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600")
+  createdAt    DateTime     @default(now())
 
-  modules     Module[]
-  enrollments Enrollment[] // Links course to enrolled students
+  modules      Module[]
+  enrollments  Enrollment[] 
 }
 
 model Module {
@@ -76,13 +80,12 @@ model Module {
 }
 
 model Lesson {
-  id       String @id @default(uuid())
-  title    String
-  videoUrl String
-  moduleId String
-  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id             String           @id @default(uuid())
+  title          String
+  videoUrl       String
+  moduleId       String
+  module         Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  // ADD THIS LINE
   comments       Comment[]
   LessonProgress LessonProgress[]
 }
@@ -98,48 +101,48 @@ model Comment {
   userName  String
 }
 
-// NEW: Tracks which student is taking which course
 model Enrollment {
   id        String   @id @default(uuid())
   userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseId  String
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
-  // Prevents a student from enrolling in the same course twice
   @@unique([userId, courseId])
 }
 
-// NEW: Tracks exactly which videos the student has finished
 model LessonProgress {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lessonId    String
-  lesson      Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  isCompleted Boolean @default(true)
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  isCompleted Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([userId, lessonId])
 }
+
 model Message {
-  id        Int      @id @default(autoincrement())
-  content   String
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  content     String
+  createdAt   DateTime @default(now())
   
   // Who sent it?
-  senderId  Int
-  sender    User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId    Int
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   
-  // Who receives it?
-  recipientId Int
-  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  // Who receives it? (Optional for class rooms)
+  recipientId Int?
+  recipient   User?    @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
   
   // Read status
-  isRead    Boolean  @default(false)
+  isRead      Boolean  @default(false)
   
-  // Which room/thread is this for? (e.g., "1-2" for user 1 and user 2)
-  room      String   
+  // Which room/thread is this for? (Optional for 1-to-1 DMs)
+  room        String?   
 
   @@index([room])
   @@index([senderId])

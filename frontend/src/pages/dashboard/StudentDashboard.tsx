@@ -5,6 +5,9 @@ import {
   Flame, PlayCircle, BookA, ChevronRight, Upload
 } from 'lucide-react';
 
+// IMPORT THE LIVE CHAT COMPONENT HERE
+import LiveChat from '../../components/LiveChat';
+
 const HOURS = [ 
   { label: "09:00 - 10:00", start: "09:00" }, 
   { label: "10:00 - 11:00", start: "10:00" }, 
@@ -19,7 +22,7 @@ interface Assignment { id: number; title: string; subject: string; status: strin
 interface ExamResult { id: number; examName: string; score: number; maxScore: number; date: string; }
 interface TimetableSlot { id: number; day: string; startTime: string; subject: string; }
 interface AttendanceRecord { id: number; status: string; date: string; }
-interface StudentData { name: string; email: string; branch: string; rollNumber: string; assignments: Assignment[]; examResults: ExamResult[]; attendance: AttendanceRecord[]; }
+interface StudentData { id: number; name: string; email: string; role: string; branch: string; rollNumber: string; assignments: Assignment[]; examResults: ExamResult[]; attendance: AttendanceRecord[]; }
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState<StudentData | null>(null);
@@ -156,7 +159,7 @@ const StudentDashboard = () => {
   if (loading || !student) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-slate-400" size={40} /> <p className="font-bold text-slate-500">Syncing workspace...</p></div>;
 
   return (
-    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-28 pt-8 px-4 md:px-8 min-h-screen">
+    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-28 pt-8 px-4 md:px-8 min-h-screen relative">
       
       {/* CLASSIC, SIMPLE, MODERN HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -609,6 +612,9 @@ const StudentDashboard = () => {
            </div>
         )}
       </div>
+
+      {/* RENDER THE LIVE CHAT COMPONENT */}
+      {student && <LiveChat currentUser={student} roomName={student.branch || "General"} />}
     </div>
   );
 };

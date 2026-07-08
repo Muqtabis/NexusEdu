@@ -8,6 +8,7 @@ import { PrismaService } from './prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { EmailService } from './email/email.service';
 import { MessageService } from './message.service';
+import { ChatGateway } from './chat.gateway';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { MessageService } from './message.service';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [PrismaService, UserService, AiService, EmailService, MessageService],
+  providers: [PrismaService, UserService, AiService, EmailService, MessageService, ChatGateway],
   exports: [PrismaService],
 })
 export class AppModule {}
