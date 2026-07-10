@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, BookOpen, Layers, Hash } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -27,8 +28,7 @@ const Signup = () => {
     }
 
     try {
-      // 🚀 Updated API URL here
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/register`, {
+      const res = await apiFetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -36,7 +36,7 @@ const Signup = () => {
 
       if (res.ok) {
         alert("Account Created Successfully! Please Login.");
-        navigate('/');
+        navigate('/login');
       } else {
         const data = await res.json();
         setError(data.message || "Signup Failed");
@@ -47,8 +47,8 @@ const Signup = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl">
+    <div className="min-h-[100dvh] bg-slate-100 px-4 py-6 sm:px-6 sm:py-8 flex items-start sm:items-center justify-center">
+      <div className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-y-auto bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-slate-100">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <UserPlus size={32} />
@@ -126,7 +126,7 @@ const Signup = () => {
         </form>
 
         <p className="text-center mt-6 text-slate-500">
-          Already have an account? <a href="/" className="text-indigo-600 font-bold hover:underline">Login</a>
+          Already have an account? <Link to="/login" className="text-indigo-600 font-bold hover:underline">Login</Link>
         </p>
       </div>
     </div>

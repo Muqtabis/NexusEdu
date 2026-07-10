@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +15,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
+      const response = await apiFetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -26,11 +28,11 @@ const Login = () => {
       }
 
       // Save user details to local storage so the rest of the app knows who is logged in
-      localStorage.setItem('userId', data.id);
-      localStorage.setItem('role', data.role);
-      
-      // Optional: If your backend sends a token, save it too!
-      if (data.token) localStorage.setItem('token', data.token);
+      const user = data.user ?? data;
+      localStorage.setItem('userId', String(user.id));
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('name', user.name || '');
+      localStorage.setItem('email', user.email || '');
 
       // Redirect to the main dashboard
       window.location.href = '/'; 
@@ -127,9 +129,9 @@ const Login = () => {
         {/* Signup Link */}
         <p className="mt-8 text-center text-sm font-medium text-slate-500">
           Don't have an account?{' '}
-          <a href="/signup" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">
+          <Link to="/signup" className="text-indigo-600 hover:text-indigo-700 font-bold transition-colors">
             Create one now
-          </a>
+          </Link>
         </p>
 
       </div>

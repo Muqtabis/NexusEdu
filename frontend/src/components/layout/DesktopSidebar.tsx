@@ -1,6 +1,7 @@
 import { Home, Sparkles, User, Calendar, Settings, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { apiFetch } from '../../lib/api';
 
 const navItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
@@ -15,7 +16,8 @@ export const DesktopSidebar = () => {
   const location = useLocation();
 
   // --- LOGOUT LOGIC ---
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.clear(); // Wipes memory
     window.location.href = '/login'; // Hard redirect to clear all states
   };

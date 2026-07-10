@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Injectable } from "@nestjs/common";
+import * as nodemailer from "nodemailer";
 
 @Injectable()
 export class EmailService {
@@ -7,26 +7,26 @@ export class EmailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST || 'smtp.gmail.com',
+      host: process.env.MAIL_HOST || "smtp.gmail.com",
       port: parseInt(process.env.MAIL_PORT) || 587,
       secure: false,
       auth: {
-        user: process.env.MAIL_USER || 'your-email@gmail.com',
-        pass: process.env.MAIL_PASSWORD || 'your-app-password',
+        user: process.env.MAIL_USER || "your-email@gmail.com",
+        pass: process.env.MAIL_PASSWORD || "your-app-password",
       },
     });
   }
 
   async sendWelcomeEmail(email: string, name: string): Promise<void> {
     const mailOptions = {
-      from: process.env.MAIL_FROM || 'noreply@nexusedu.com',
+      from: process.env.MAIL_FROM || "noreply@nexusedu.com",
       to: email,
-      subject: 'Welcome to NexusEdu',
+      subject: "Welcome to NexusEdu",
       html: `
         <h1>Welcome to NexusEdu, ${name}!</h1>
         <p>Thank you for registering. We're excited to have you on board.</p>
         <p>You can now login and start exploring our courses.</p>
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/login">Login to NexusEdu</a>
+        <a href="${process.env.APP_URL || "http://localhost:3000"}/login">Login to NexusEdu</a>
       `,
     };
 
@@ -39,14 +39,14 @@ export class EmailService {
     assignmentName: string,
   ): Promise<void> {
     const mailOptions = {
-      from: process.env.MAIL_FROM || 'noreply@nexusedu.com',
+      from: process.env.MAIL_FROM || "noreply@nexusedu.com",
       to: teacherEmail,
       subject: `New Assignment Submission: ${assignmentName}`,
       html: `
         <h2>New Assignment Submission</h2>
         <p><strong>${studentName}</strong> has submitted the assignment: <strong>${assignmentName}</strong></p>
         <p>Please review and provide feedback.</p>
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/dashboard">View in Dashboard</a>
+        <a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard">View in Dashboard</a>
       `,
     };
 
@@ -60,7 +60,7 @@ export class EmailService {
     grade: number,
   ): Promise<void> {
     const mailOptions = {
-      from: process.env.MAIL_FROM || 'noreply@nexusedu.com',
+      from: process.env.MAIL_FROM || "noreply@nexusedu.com",
       to: studentEmail,
       subject: `Your Grade for ${assignmentName}`,
       html: `
@@ -68,7 +68,7 @@ export class EmailService {
         <p>Hello ${studentName},</p>
         <p>Your grade for <strong>${assignmentName}</strong> has been released.</p>
         <p><strong>Grade: ${grade}</strong></p>
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/dashboard/results">View Your Results</a>
+        <a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard/results">View Your Results</a>
       `,
     };
 
@@ -81,7 +81,7 @@ export class EmailService {
     courseName: string,
   ): Promise<void> {
     const mailOptions = {
-      from: process.env.MAIL_FROM || 'noreply@nexusedu.com',
+      from: process.env.MAIL_FROM || "noreply@nexusedu.com",
       to: studentEmail,
       subject: `Enrollment Confirmed: ${courseName}`,
       html: `
@@ -89,7 +89,7 @@ export class EmailService {
         <p>Hello ${studentName},</p>
         <p>You have successfully enrolled in <strong>${courseName}</strong></p>
         <p>You can now start learning and tracking your progress.</p>
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/dashboard/courses">View Your Courses</a>
+        <a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard/courses">View Your Courses</a>
       `,
     };
 
@@ -103,7 +103,7 @@ export class EmailService {
     messagePreview: string,
   ): Promise<void> {
     const mailOptions = {
-      from: process.env.MAIL_FROM || 'noreply@nexusedu.com',
+      from: process.env.MAIL_FROM || "noreply@nexusedu.com",
       to: recipientEmail,
       subject: `New Message from ${senderName}`,
       html: `
@@ -111,7 +111,7 @@ export class EmailService {
         <p>Hello ${recipientName},</p>
         <p><strong>${senderName}</strong> sent you a message:</p>
         <p>"${messagePreview}"</p>
-        <a href="${process.env.APP_URL || 'http://localhost:3000'}/messages">View All Messages</a>
+        <a href="${process.env.APP_URL || "http://localhost:3000"}/messages">View All Messages</a>
       `,
     };
 

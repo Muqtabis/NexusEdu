@@ -1,30 +1,39 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { AppModule } from './app.module';
+import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import cookieParser = require("cookie-parser");
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
-  // Enable CORS so Frontend can talk to Backend
+  app.use(cookieParser());
+
+  const allowedOrigins = [
+    process.env.APP_URL,
+    process.env.FRONTEND_URL,
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ].filter((origin): origin is string => Boolean(origin));
+
   app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: allowedOrigins,
+    credentials: true,
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   });
-  
-  // Adjusted validation pipe for smoother frontend integration
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false, // Changed to false: allows extra data to be safely ignored rather than crashing
+      forbidNonWhitelisted: false,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
-      disableErrorMessages: false, 
+      disableErrorMessages: false,
     }),
   );
-  
+
   await app.listen(4000);
-  console.log('Backend running on http://localhost:4000');
+  console.log("Backend running on http://localhost:4000");
 }
+
 bootstrap();

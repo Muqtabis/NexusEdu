@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, Clock, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 const Dashboard = () => {
   // 1. Set up state to hold the dynamic data
@@ -19,7 +20,7 @@ const Dashboard = () => {
       
       try {
         // Here is the crucial Production API URL update!
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/${studentId}`);
+        const res = await fetch(`${API_BASE_URL}/dashboard/${studentId}`);
         if (res.ok) {
           const jsonData = await res.json();
           setData(jsonData);

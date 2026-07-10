@@ -4,6 +4,7 @@ import {
   CheckCircle, XCircle, TrendingUp, Download, Layers, PlusCircle, Search,
   Flame, PlayCircle, BookA, ChevronRight, Upload
 } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 // IMPORT THE LIVE CHAT COMPONENT HERE
 import LiveChat from '../../components/LiveChat';
@@ -48,27 +49,27 @@ const StudentDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/${studentId}`);
+      const res = await fetch(`${API_BASE_URL}/dashboard/${studentId}`);
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
       const data = await res.json();
       setStudent(data);
       
       if (data.branch) {
-        const ttRes = await fetch(`${import.meta.env.VITE_API_URL}/timetable/class/${data.branch}`);
+        const ttRes = await fetch(`${API_BASE_URL}/timetable/class/${data.branch}`);
         if (ttRes.ok) setTimetable(await ttRes.json());
       }
 
-      const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`);
+      const courseRes = await fetch(`${API_BASE_URL}/api/courses`);
       if (courseRes.ok) setCourses(await courseRes.json());
 
-      const learningRes = await fetch(`${import.meta.env.VITE_API_URL}/api/students/${studentId}/learning`);
+      const learningRes = await fetch(`${API_BASE_URL}/api/students/${studentId}/learning`);
       if (learningRes.ok) {
         const lData = await learningRes.json();
         setEnrolledCourses(lData.enrollments.map((e: any) => e.course));
         setProgressData(lData.progress);
       }
 
-      const actRes = await fetch(`${import.meta.env.VITE_API_URL}/api/students/${studentId}/activity`);
+      const actRes = await fetch(`${API_BASE_URL}/api/students/${studentId}/activity`);
       if (actRes.ok) setActivity(await actRes.json());
 
     } catch (error) { 
@@ -102,7 +103,7 @@ const StudentDashboard = () => {
     const formData = new FormData();
     formData.append('file', e.target.files[0]);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/assignment/${assignmentId}/submit`, { method: 'POST', body: formData });
+      const res = await fetch(`${API_BASE_URL}/assignment/${assignmentId}/submit`, { method: 'POST', body: formData });
       if (res.ok) { alert("Assignment Submitted Successfully! 🎉"); fetchData(); }
     } catch (err) { alert("Upload failed. Is your backend running?"); } 
     finally { setUploading(null); }
@@ -330,7 +331,7 @@ const StudentDashboard = () => {
                     </button>
                   </div>
 
-                  <div className="relative z-10 p-6 md:p-12 w-full md:w-1/3 flex justify-center md:justify-end hidden sm:flex">
+                  <div className="relative z-10 p-6 md:p-12 w-full md:w-1/3 justify-center md:justify-end hidden sm:flex">
                     <div className="relative w-24 h-24 md:w-32 md:h-32 flex items-center justify-center bg-slate-800/50 rounded-full backdrop-blur-sm border border-white/10">
                       <svg className="absolute w-full h-full -rotate-90" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="40" className="fill-none stroke-slate-700" strokeWidth="6" />
@@ -455,7 +456,7 @@ const StudentDashboard = () => {
                            <button 
                               onClick={async () => {
                                 try {
-                                  await fetch(`${import.meta.env.VITE_API_URL}/api/courses/${course.id}/enroll`, {
+                                  await fetch(`${API_BASE_URL}/api/courses/${course.id}/enroll`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ userId: parseInt(studentId || '0') })

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 const SchoolEvents = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -9,7 +10,7 @@ const SchoolEvents = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/events`);
+        const res = await fetch(`${API_BASE_URL}/events`);
         if (!res.ok) throw new Error('Failed to load events');
         const data = await res.json();
         setEvents(data);

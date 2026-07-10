@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, CheckCircle, Circle, Loader2, ArrowLeft, Send, MessageSquare } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 
 const CoursePlayer = () => {
   const { courseId } = useParams();
@@ -21,7 +22,7 @@ const CoursePlayer = () => {
   useEffect(() => {
     const fetchCourseAndProgress = async () => {
       try {
-        const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/${courseId}`);
+        const courseRes = await fetch(`${API_BASE_URL}/api/courses/${courseId}`);
         const courseData = await courseRes.json();
         setCourse(courseData);
         
@@ -29,7 +30,7 @@ const CoursePlayer = () => {
           setActiveLesson(courseData.modules[0].lessons[0]);
         }
 
-        const progressRes = await fetch(`${import.meta.env.VITE_API_URL}/api/students/${userId}/learning`);
+        const progressRes = await fetch(`${API_BASE_URL}/api/students/${userId}/learning`);
         if (progressRes.ok) {
           const progressData = await progressRes.json();
           const completedIds = progressData.progress.map((p: any) => p.lessonId);
@@ -48,7 +49,7 @@ const CoursePlayer = () => {
   // NEW: Fetch comments when activeLesson changes
   useEffect(() => {
     if (activeLesson?.id) {
-      fetch(`${import.meta.env.VITE_API_URL}/api/lessons/${activeLesson.id}/comments`)
+      fetch(`${API_BASE_URL}/api/lessons/${activeLesson.id}/comments`)
         .then(res => res.json())
         .then(data => {
             // Force ensure we set an array
@@ -61,7 +62,7 @@ const CoursePlayer = () => {
   const markComplete = async (lessonId: string) => {
     setCompletedLessons(prev => [...prev, lessonId]);
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/progress/complete`, {
+      await fetch(`${API_BASE_URL}/api/progress/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: parseInt(userId!), lessonId })
@@ -74,7 +75,7 @@ const CoursePlayer = () => {
   // NEW: Post comment handler
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/lessons/${activeLesson.id}/comments`, {
+    const res = await fetch(`${API_BASE_URL}/api/lessons/${activeLesson.id}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: newComment, userName, userId: parseInt(userId!) })

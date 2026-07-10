@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BookOpen, PlusCircle, Save, Video, LayoutList } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 const TeacherBuilder = () => {
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ const TeacherBuilder = () => {
 
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(courseData)

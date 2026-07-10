@@ -4,6 +4,7 @@ import {
   Star, ExternalLink, Trophy, Filter, Lock, Send, AlertCircle, 
   Layers, BookOpen, CheckCircle, ArrowRight
 } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 interface Assignment { id: number; title: string; status: string; submissionUrl?: string; grade?: string; feedback?: string; }
 interface Student { id: number; name: string; email: string; branch?: string; rollNumber?: string; status: 'present' | 'absent' | 'late'; assignments: Assignment[]; }
@@ -48,7 +49,7 @@ const TeacherDashboard = () => {
   const fetchMyData = async () => {
     try {
       // 1. Fetch Students & Classes
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/teacher/${teacherId}/students`);
+      const res = await fetch(`${API_BASE_URL}/teacher/${teacherId}/students`);
       const data = await res.json();
       
       if (data.students) {
@@ -59,7 +60,7 @@ const TeacherDashboard = () => {
       }
 
       // 2. Fetch Published LMS Courses
-      const courseRes = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`);
+      const courseRes = await fetch(`${API_BASE_URL}/api/courses`);
       if (courseRes.ok) setCourses(await courseRes.json());
 
     } catch (error) { 
@@ -107,7 +108,7 @@ const TeacherDashboard = () => {
     try {
       const date = new Date().toISOString();
       for (const student of filteredStudents) {
-        await fetch(`${import.meta.env.VITE_API_URL}/attendance`, { 
+        await fetch(`${API_BASE_URL}/attendance`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ studentId: student.id, status: student.status, date: date, teacherId: teacherId }) 
@@ -131,7 +132,7 @@ const TeacherDashboard = () => {
 
     try {
       for (const student of filteredStudents) {
-        await fetch(`${import.meta.env.VITE_API_URL}/assignment`, { 
+        await fetch(`${API_BASE_URL}/assignment`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ title, subject, dueDate: new Date().toISOString(), studentId: student.id }) 
@@ -160,7 +161,7 @@ const TeacherDashboard = () => {
     if (resultsPayload.length === 0) return alert("Please enter marks for at least one student.");
 
     try {
-        await fetch(`${import.meta.env.VITE_API_URL}/exam/publish-bulk`, {
+        await fetch(`${API_BASE_URL}/exam/publish-bulk`, {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ results: resultsPayload })
@@ -176,7 +177,7 @@ const TeacherDashboard = () => {
   const handleGradeSubmit = async () => {
     if (!selectedWork) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/assignment/${selectedWork.work.id}/grade`, { 
+      await fetch(`${API_BASE_URL}/assignment/${selectedWork.work.id}/grade`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ grade, feedback }) 

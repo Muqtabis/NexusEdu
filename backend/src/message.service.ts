@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "./prisma.service";
 
 @Injectable()
 export class MessageService {
@@ -9,28 +9,28 @@ export class MessageService {
     // Get all messages involving this user, sorted by most recent
     const messages = await this.prisma.message.findMany({
       where: {
-        OR: [
-          { senderId: userId },
-          { recipientId: userId },
-        ],
+        OR: [{ senderId: userId }, { recipientId: userId }],
       },
       include: {
         sender: { select: { id: true, name: true, email: true } },
         recipient: { select: { id: true, name: true, email: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     // Group by thread (unique conversation partners)
     const threadMap = new Map();
-    messages.forEach(msg => {
-      const partnerId = msg.senderId === userId ? msg.recipientId : msg.senderId;
+    messages.forEach((msg) => {
+      const partnerId =
+        msg.senderId === userId ? msg.recipientId : msg.senderId;
       const key = `thread-${partnerId}`;
       if (!threadMap.has(key)) {
         threadMap.set(key, {
           partnerId,
-          partnerName: msg.senderId === userId ? msg.recipient.name : msg.sender.name,
-          partnerEmail: msg.senderId === userId ? msg.recipient.email : msg.sender.email,
+          partnerName:
+            msg.senderId === userId ? msg.recipient.name : msg.sender.name,
+          partnerEmail:
+            msg.senderId === userId ? msg.recipient.email : msg.sender.email,
           lastMessage: msg.content,
           lastMessageAt: msg.createdAt,
         });
@@ -52,7 +52,7 @@ export class MessageService {
         sender: { select: { id: true, name: true, email: true } },
         recipient: { select: { id: true, name: true, email: true } },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
 
     return messages;

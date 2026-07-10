@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { User, Mail, ShieldCheck, GraduationCap, Loader2, BookOpen, Presentation, Settings, X, Key, AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { API_BASE_URL } from '../lib/api';
 
 const Profile = () => {
   const [profileData, setProfileData] = useState<any>(null);
@@ -33,7 +35,7 @@ const Profile = () => {
       try {
         if (role === 'admin') {
           try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/${userId}`);
+            const res = await fetch(`${API_BASE_URL}/admin/${userId}`);
             if (!res.ok) throw new Error("Admin endpoint failed");
             const data = await res.json();
             setProfileData({ type: 'admin', name: data.name || 'System Admin', email: data.email || 'admin@nexusedu.com', avatar: data.avatar, bio: data.bio });
@@ -44,7 +46,7 @@ const Profile = () => {
           }
         } 
         else if (role === 'teacher') {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/teacher/${userId}/students`);
+          const res = await fetch(`${API_BASE_URL}/teacher/${userId}/students`);
           if (!res.ok) throw new Error(`Backend returned status: ${res.status}`);
           const data = await res.json();
           setProfileData({
@@ -59,7 +61,7 @@ const Profile = () => {
           setBio(data.bio || '');
         } 
         else {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/${userId}`);
+          const res = await fetch(`${API_BASE_URL}/dashboard/${userId}`);
           if (!res.ok) throw new Error(`Backend returned status: ${res.status}`);
           const data = await res.json();
           setProfileData({ type: 'student', ...data });
@@ -83,7 +85,7 @@ const Profile = () => {
     setProfileUpdateSuccess(false);
     
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/user/${userId}/profile`, {
+      const res = await fetch(`${API_BASE_URL}/user/${userId}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avatar, bio })
@@ -122,7 +124,7 @@ const Profile = () => {
 
     setPasswordLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/change-password`, {
+      const res = await fetch(`${API_BASE_URL}/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -153,7 +155,8 @@ const Profile = () => {
   };
 
   // --- HANDLE LOGOUT ---
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.clear(); 
     window.location.href = '/login'; 
   };

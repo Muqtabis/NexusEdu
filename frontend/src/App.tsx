@@ -22,7 +22,7 @@ const RootRedirect = () => {
   const userId = localStorage.getItem('userId');
   const role = localStorage.getItem('role');
 
-  if (!userId) return <Navigate to="/Login" replace />; // Not logged in? Go to Login.
+  if (!userId) return <Navigate to="/login" replace />; // Not logged in? Go to Login.
 
   // Logged in? Go to your specific dashboard!
   if (role === 'admin') return <Navigate to="/dashboard/admin" replace />;
@@ -35,7 +35,7 @@ function App() {
     <Router>
       <Routes>
         {/* Public Routes */}
-        <Route path="/Login" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
         {/* 🚦 Smart Redirect Route */}

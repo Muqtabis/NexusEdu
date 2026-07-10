@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Users, Trash2, Shield, BookOpen, Loader2, Plus, X, Calendar, Megaphone, Trophy, Filter, Search, UserPlus, AlertTriangle } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 interface SubjectAllocation { id: number; className: string; subject: string; }
 interface User { id: number; name: string; email: string; role: string; branch?: string; classTeacherOf?: string; subjectAllocations: SubjectAllocation[]; }
@@ -51,9 +52,9 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       const [resUsers, resResults, resEvents] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/admin/users`), 
-        fetch(`${import.meta.env.VITE_API_URL}/admin/results`),
-        fetch(`${import.meta.env.VITE_API_URL}/events`)
+        fetch(`${API_BASE_URL}/admin/users`), 
+        fetch(`${API_BASE_URL}/admin/results`),
+        fetch(`${API_BASE_URL}/events`)
       ]);
       
       setUsers(await resUsers.json());
@@ -69,7 +70,7 @@ const AdminDashboard = () => {
   const fetchSchedule = async () => {
     setLoadingSchedule(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/timetable/class/${ttClass}`);
+      const res = await fetch(`${API_BASE_URL}/timetable/class/${ttClass}`);
       setSchedule(await res.json());
     } catch (err) {} finally { setLoadingSchedule(false); }
   };
@@ -79,7 +80,7 @@ const AdminDashboard = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/register`, {
+      const res = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
@@ -94,7 +95,7 @@ const AdminDashboard = () => {
 
   const handleDeleteUser = async (id: number) => {
     if (!confirm("Permanently delete this user and all associated records?")) return;
-    await fetch(`${import.meta.env.VITE_API_URL}/admin/user/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/admin/user/${id}`, { method: 'DELETE' });
     fetchData();
   };
 
@@ -105,13 +106,13 @@ const AdminDashboard = () => {
     }
     const newSlot = { day, startTime: hour.start, subject };
     setSchedule(prev => [...prev.filter(s => !(s.day === day && s.startTime === hour.start)), newSlot]);
-    try { await fetch(`${import.meta.env.VITE_API_URL}/admin/timetable`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ className: ttClass, day, startTime: hour.start, endTime: hour.end, subject }) }); } 
+    try { await fetch(`${API_BASE_URL}/admin/timetable`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ className: ttClass, day, startTime: hour.start, endTime: hour.end, subject }) }); } 
     catch (err) { fetchSchedule(); }
   };
 
   const handleAddEvent = async () => {
     if (!eventTitle || !eventDate) return;
-    await fetch(`${import.meta.env.VITE_API_URL}/admin/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: eventTitle, date: eventDate, description: "School Event", type: eventType }) });
+    await fetch(`${API_BASE_URL}/admin/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: eventTitle, date: eventDate, description: "School Event", type: eventType }) });
     alert("Event Published! 📅"); 
     setEventTitle(""); 
     setEventDate("");
@@ -119,17 +120,17 @@ const AdminDashboard = () => {
   };
 
   const handleAssignClassTeacher = async (teacherId: number, className: string) => {
-    await fetch(`${import.meta.env.VITE_API_URL}/admin/assign-class-teacher`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId, className }) });
+    await fetch(`${API_BASE_URL}/admin/assign-class-teacher`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId, className }) });
     fetchData();
   };
 
   const handleAddSubject = async (teacherId: number) => {
-    await fetch(`${import.meta.env.VITE_API_URL}/admin/assign-subject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId, className: newClass, subject: newSubject }) });
+    await fetch(`${API_BASE_URL}/admin/assign-subject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId, className: newClass, subject: newSubject }) });
     setSelectedTeacher(null); fetchData();
   };
 
   const handleRemoveSubject = async (allocationId: number) => {
-    await fetch(`${import.meta.env.VITE_API_URL}/admin/subject/${allocationId}`, { method: 'DELETE' }); fetchData();
+    await fetch(`${API_BASE_URL}/admin/subject/${allocationId}`, { method: 'DELETE' }); fetchData();
   };
 
   const getSubject = (day: string, startTime: string) => { const slot = schedule.find(s => s.day === day && s.startTime === startTime); return slot ? slot.subject : ""; };
