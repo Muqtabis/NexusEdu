@@ -7,15 +7,18 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
 
-  const allowedOrigins = [
-    process.env.APP_URL,
-    process.env.FRONTEND_URL,
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ].filter((origin): origin is string => Boolean(origin));
-
+  // CORS Fix: Automatically allows any Vercel domain and localhost
   app.enableCors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin || origin.includes('localhost')) {
+        return callback(null, true); // Allow local development
+      }
+      if (origin.includes('vercel.app')) {
+        return callback(null, true); // Allow all Vercel deployments
+      }
+      
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   });
@@ -32,8 +35,10 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(4000);
-  console.log("Backend running on http://localhost:4000");
+  // Render Fix: Uses the cloud provider's assigned port if available
+  const port = process.env.PORT || 4000;
+  await app.listen(port);
+  console.log(`Backend running on port ${port}`);
 }
 
 bootstrap();
