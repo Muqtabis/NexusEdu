@@ -20,7 +20,6 @@ import { MessageService } from "./message.service";
   providers: [
     PrismaService,
     UserService,
-    AiService,
     EmailService,
     MessageService,
   ],

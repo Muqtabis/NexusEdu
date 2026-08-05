@@ -112,8 +112,8 @@ const Signup = () => {
             </div>
           )}
 
-          {formData.role === 'admin' && (
-            <input name="secretCode" type="password" placeholder="Admin Secret Code" className="w-full p-3 bg-rose-50 border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none animate-in fade-in" onChange={handleChange} />
+          {(formData.role === 'admin' || formData.role === 'teacher') && (
+            <input name="secretCode" type="password" placeholder={formData.role === 'admin' ? "Admin Secret Code" : "Teacher Secret Code"} className="w-full p-3 bg-rose-50 border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none animate-in fade-in" onChange={handleChange} />
           )}
 
           <button type="submit" className="w-full p-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">

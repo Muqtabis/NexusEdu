@@ -231,6 +231,7 @@ export class AppController {
     return { message: "Logged out successfully" };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get("teacher/:id/students")
   async getTeacherStudents(@Param("id") id: string) {
     const teacherId = Number(id);
@@ -281,8 +282,12 @@ export class AppController {
     };
   }
 
-  @Get("admin/results")
-  async getAdminResults() {
+  @UseGuards(JwtAuthGuard)
+  @Get("admin/result-list")
+  async getAdminResults(@Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     const results = (await this.prisma.examResult.findMany({
       orderBy: { date: "desc" },
       include: {
@@ -310,13 +315,18 @@ export class AppController {
     }));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get("events")
   getEvents() {
     return this.eventFeed;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post("admin/event")
-  createEvent(@Body() body: { title: string; date: string; type: string; description?: string }) {
+  createEvent(@Body() body: { title: string; date: string; type: string; description?: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     const event = {
       id: this.eventFeed.length + 1,
       title: body.title,
@@ -329,11 +339,13 @@ export class AppController {
     return event;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get("timetable/class/:className")
   getClassTimetable(@Param("className") className: string) {
     return this.timetables.get(className) || [];
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post("admin/timetable")
   saveClassTimetable(
     @Body()
@@ -345,7 +357,11 @@ export class AppController {
       subject?: string;
       timetable?: Array<{ day: string; startTime: string; endTime: string; subject: string }>;
     },
+    @Req() req: any,
   ) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     if (body.timetable) {
       this.timetables.set(body.className, body.timetable);
       return { className: body.className, timetable: body.timetable };
@@ -369,16 +385,24 @@ export class AppController {
     return { className: body.className, timetable: filtered };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post("admin/assign-class-teacher")
-  assignClassTeacher(@Body() body: { teacherId: number; className: string }) {
+  assignClassTeacher(@Body() body: { teacherId: number; className: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     const allocation = this.getTeacherAllocation(body.teacherId);
     allocation.classTeacherOf = body.className;
     this.teacherAllocations.set(body.teacherId, allocation);
     return allocation;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post("admin/assign-subject")
-  assignSubject(@Body() body: { teacherId: number; className: string; subject: string }) {
+  assignSubject(@Body() body: { teacherId: number; className: string; subject: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     const allocation = this.getTeacherAllocation(body.teacherId);
     const existing = allocation.subjectAllocations.find(
       (entry) => entry.className === body.className && entry.subject === body.subject,
@@ -396,8 +420,12 @@ export class AppController {
     return allocation;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete("admin/subject/:id")
-  removeSubject(@Param("id") id: string) {
+  removeSubject(@Param("id") id: string, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
     const subjectId = Number(id);
     for (const allocation of this.teacherAllocations.values()) {
       const remaining = allocation.subjectAllocations.filter((entry) => entry.id !== subjectId);
