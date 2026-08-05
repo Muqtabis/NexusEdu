@@ -10,14 +10,13 @@ async function bootstrap() {
   // CORS Fix: Automatically allows any Vercel domain and localhost
   app.enableCors({
     origin: function (origin, callback) {
-      if (!origin || origin.includes('localhost')) {
+      if (!origin || origin.includes("localhost")) {
         return callback(null, true); // Allow local development
       }
-      if (origin.includes('vercel.app')) {
+      if (origin.includes("vercel.app")) {
         return callback(null, true); // Allow all Vercel deployments
       }
-      
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
@@ -40,5 +39,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Backend running on port ${port}`);
 }
-
 bootstrap();
