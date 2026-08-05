@@ -3,7 +3,6 @@ import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { UserService } from "./user.service";
-import { AiService } from "./ai/ai.service";
 import { PrismaService } from "./prisma.service";
 import { AuthModule } from "./auth/auth.module";
 import { EmailService } from "./email/email.service";

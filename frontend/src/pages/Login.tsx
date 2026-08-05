@@ -27,6 +27,11 @@ const Login = () => {
         throw new Error(data.message || 'Invalid login credentials');
       }
 
+      // If server returned a JWT token (useful for mobile/native clients), persist it
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
       // Save user details to local storage so the rest of the app knows who is logged in
       const user = data.user ?? data;
       localStorage.setItem('userId', String(user.id));

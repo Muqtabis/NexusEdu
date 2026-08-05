@@ -22,10 +22,6 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.role === 'admin' && formData.secretCode !== 'ADMIN2026') {
-      setError("Invalid Admin Secret Code!");
-      return;
-    }
 
     try {
       const res = await apiFetch('/register', {

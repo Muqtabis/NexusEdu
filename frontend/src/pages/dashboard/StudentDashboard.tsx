@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import { 
-  BookOpen, Loader2, Calendar, Star, BrainCircuit, Award, Activity, 
+  BookOpen, Loader2, Calendar, Star, Award, Activity, 
   CheckCircle, XCircle, TrendingUp, Download, Layers, PlusCircle, Search,
   Flame, PlayCircle, BookA, ChevronRight, Upload
 } from 'lucide-react';
 import { API_BASE_URL } from '../../lib/api';
-
-// IMPORT THE LIVE CHAT COMPONENT HERE
-import LiveChat from '../../components/LiveChat';
 
 const HOURS = [ 
   { label: "09:00 - 10:00", start: "09:00" }, 
@@ -160,10 +157,10 @@ const StudentDashboard = () => {
   if (loading || !student) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-slate-400" size={40} /> <p className="font-bold text-slate-500">Syncing workspace...</p></div>;
 
   return (
-    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-28 pt-8 px-4 md:px-8 min-h-screen relative">
+    <div className="flex flex-col gap-8 max-w-5xl mx-auto w-full pb-24 pt-4 sm:pt-6 px-3 sm:px-4 lg:px-6 min-h-[100dvh] overflow-x-hidden relative touch-manipulation">
       
       {/* CLASSIC, SIMPLE, MODERN HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
             Good morning, {student.name.split(' ')[0]}.
@@ -177,9 +174,9 @@ const StudentDashboard = () => {
           </p>
         </div>
 
-        <div className="flex flex-row items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
            {/* Minimalist Attendance Badge */}
-           <div className="bg-white border border-slate-200 pl-3 pr-5 py-2 rounded-xl flex items-center gap-3 flex-1 md:flex-none shadow-sm">
+           <div className="bg-white border border-slate-200 pl-3 pr-5 py-3 rounded-xl flex items-center gap-3 w-full sm:w-auto shadow-sm">
               <div className="relative flex h-10 w-10 items-center justify-center">
                 <svg className="absolute w-full h-full -rotate-90">
                   <circle cx="20" cy="20" r="16" className="fill-none stroke-slate-100" strokeWidth="3.5" />
@@ -202,20 +199,16 @@ const StudentDashboard = () => {
               </div>
            </div>
 
-           {/* Classic Dark Button */}
-           <button className="bg-slate-900 text-white hover:bg-slate-800 transition-colors p-3 md:px-5 md:py-3 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm shrink-0">
-             <BrainCircuit size={18} /> <span className="hidden md:block text-sm">AI Agent</span>
-           </button>
         </div>
       </div>
 
       {/* HORIZONTALLY SCROLLABLE MOBILE NAVIGATION */}
-      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto snap-x hide-scrollbar px-1 -mx-2 sm:mx-0">
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto snap-x hide-scrollbar px-1 -mx-2 sm:mx-0 pb-1">
         {['overview', 'courses', 'timetable', 'attendance', 'results'].map(tab => (
            <button 
             key={tab}
             onClick={() => setActiveTab(tab as any)} 
-            className={`whitespace-nowrap snap-start pb-4 px-4 sm:px-6 text-sm font-bold capitalize transition-all ${activeTab === tab ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`whitespace-nowrap snap-start pb-4 px-4 sm:px-6 text-sm font-bold capitalize transition-all min-h-[44px] ${activeTab === tab ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
           >
             {tab}
           </button>
@@ -251,7 +244,7 @@ const StudentDashboard = () => {
                             ) : work.status === 'submitted' ? (
                                 <div className="w-full sm:w-auto text-center bg-amber-50 text-amber-700 px-4 py-3 sm:py-2 rounded-xl text-xs font-bold border border-amber-100 whitespace-nowrap">Review Pending</div>
                             ) : (
-                              <label className="cursor-pointer w-full sm:w-auto bg-slate-900 text-white px-5 py-3 sm:py-2.5 rounded-xl text-xs font-medium hover:bg-slate-800 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
+                              <label className="cursor-pointer w-full sm:w-auto min-h-[44px] bg-slate-900 text-white px-5 py-3 sm:py-2.5 rounded-xl text-xs font-medium hover:bg-slate-800 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                                 <Upload size={14} /> {uploading === work.id ? 'Syncing...' : 'Submit'}
                                 <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, work.id)} disabled={uploading !== null} />
                               </label>
@@ -407,7 +400,7 @@ const StudentDashboard = () => {
                     <input
                       type="text"
                       placeholder="Search topics or skills..."
-                      className="w-full pl-10 pr-4 py-3 md:py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white transition-all font-medium text-slate-700 shadow-sm"
+                      className="w-full pl-10 pr-4 py-3 md:py-2.5 border border-slate-200 rounded-xl text-base focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white transition-all font-medium text-slate-700 shadow-sm"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -464,7 +457,7 @@ const StudentDashboard = () => {
                                   fetchData(); 
                                 } catch (err) { alert("Failed to enroll."); }
                               }}
-                              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl text-sm transition-colors flex justify-center items-center gap-2 shadow-sm">
+                              className="w-full min-h-[44px] bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 rounded-xl text-sm transition-colors flex justify-center items-center gap-2 shadow-sm">
                              <PlusCircle size={16} /> Enroll Now
                            </button>
                          </div>
@@ -614,8 +607,6 @@ const StudentDashboard = () => {
         )}
       </div>
 
-      {/* RENDER THE LIVE CHAT COMPONENT */}
-      {student && <LiveChat currentUser={student} roomName={student.branch || "General"} />}
     </div>
   );
 };

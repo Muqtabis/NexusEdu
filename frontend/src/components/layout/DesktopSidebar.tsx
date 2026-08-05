@@ -1,4 +1,4 @@
-import { Home, Sparkles, User, Calendar, Settings, LogOut } from 'lucide-react';
+import { Home, User, Calendar, Settings, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { apiFetch } from '../../lib/api';
@@ -6,7 +6,6 @@ import { apiFetch } from '../../lib/api';
 const navItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
   { icon: Calendar, label: 'Schedule', path: '/schedule' },
-  { icon: Sparkles, label: 'AI Agent', path: '/agents' },
   { icon: User, label: 'Profile', path: '/profile' },
   // Linked Settings to Profile for now to prevent a blank page
   { icon: Settings, label: 'Settings', path: '/profile' }, 
