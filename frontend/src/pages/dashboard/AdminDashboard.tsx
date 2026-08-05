@@ -30,7 +30,7 @@ const AdminDashboard = () => {
 
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'student', branch: 'Class 1-A' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'student', branch: 'Class 1-A', secretCode: '' });
 
   // Teacher Management
   const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
@@ -80,17 +80,29 @@ const AdminDashboard = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...newUser,
+        ...(newUser.role === 'teacher' || newUser.role === 'admin'
+          ? { secretCode: newUser.secretCode || '' }
+          : {}),
+      };
+
       const res = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setShowCreateModal(false);
-        setNewUser({ name: '', email: '', password: '', role: 'student', branch: 'Class 1-A' });
+        setNewUser({ name: '', email: '', password: '', role: 'student', branch: 'Class 1-A', secretCode: '' });
         fetchData();
-      } else { alert("Failed to create user. Email might exist."); }
-    } catch (err) { alert("Server error"); }
+      } else {
+        const message = await res.text();
+        alert(message || "Failed to create user. Email might exist.");
+      }
+    } catch (err) {
+      alert("Server error");
+    }
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -153,7 +165,7 @@ const AdminDashboard = () => {
   if (loading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-indigo-600" size={40} /> <p className="font-bold text-slate-500">Initializing Command Center...</p></div>;
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+    <div className="flex flex-col gap-6 animate-in fade-in duration-500 min-h-[100dvh] px-3 sm:px-4 lg:px-0 pb-24">
       
       {/* HEADER & STAT CARDS */}
       <div className="p-8 rounded-[2rem] bg-slate-900 text-white shadow-2xl relative overflow-hidden">
@@ -162,7 +174,7 @@ const AdminDashboard = () => {
             <h1 className="text-3xl font-black flex items-center gap-3"><Shield className="text-emerald-400" size={32} /> Principal's Office</h1>
             <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-xs">NexusEdu Central Management</p>
           </div>
-          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20">
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20 min-h-[44px]">
             <UserPlus size={18} /> Add New User
           </button>
         </div>
@@ -201,7 +213,7 @@ const AdminDashboard = () => {
              <div className="relative flex-1">
                 <Search size={18} className="absolute left-4 top-3.5 text-slate-400" />
                 <input 
-                    className="w-full pl-12 p-3.5 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium" 
+                    className="w-full pl-12 p-3.5 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-base" 
                     placeholder="Global Search (Name, Email, or Exam)..." 
                     value={searchQuery} 
                     onChange={(e) => setSearchQuery(e.target.value)} 
@@ -453,10 +465,13 @@ const AdminDashboard = () => {
             <p className="text-slate-400 text-sm font-medium mb-8">Manually add a student, teacher, or staff member.</p>
             
             <form onSubmit={handleCreateUser} className="space-y-4">
-                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none" placeholder="Full Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} required />
-                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none" placeholder="Email" type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
-                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none" placeholder="Password" type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} required />
-                
+                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-base" placeholder="Full Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} required />
+                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-base" placeholder="Email" type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
+                <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-base" placeholder="Password" type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} required />
+                {(newUser.role === 'teacher' || newUser.role === 'admin') && (
+                  <input className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold outline-none text-base" placeholder="Secret Code" type="password" value={newUser.secretCode} onChange={e => setNewUser({...newUser, secretCode: e.target.value})} required />
+                )}
+                 
                 <div className="grid grid-cols-2 gap-4">
                     <select className="p-4 bg-slate-50 rounded-2xl font-bold border border-slate-100" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
                         <option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option>

@@ -193,9 +193,9 @@ const TeacherDashboard = () => {
   };
 
   if (loading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-indigo-600" size={40} /> <p className="font-bold text-slate-500">Loading Faculty Dashboard...</p></div>;
-
+  
   return (
-    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-32 pt-4 relative min-h-screen px-4 md:px-0">
+    <div className="max-w-5xl mx-auto w-full flex flex-col gap-6 pb-32 pt-4 relative min-h-[100dvh] px-3 sm:px-4 lg:px-0">
       
       {/* 1. HEADER & CLASS ANALYTICS */}
       <div className="bg-slate-900 text-white rounded-[2.5rem] shadow-2xl p-8 relative overflow-hidden">

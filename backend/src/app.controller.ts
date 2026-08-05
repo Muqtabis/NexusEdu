@@ -9,6 +9,7 @@ import {
   UploadedFile,
   HttpException,
   HttpStatus,
+  NotFoundException,
   UseGuards,
   Put,
   Req,
@@ -20,7 +21,6 @@ import { extname } from "path";
 import { JwtService } from "@nestjs/jwt";
 import { Response } from "express";
 import { UserService } from "./user.service";
-import { AiService } from "./ai/ai.service";
 import { PrismaService } from "./prisma.service";
 import { JwtAuthGuard } from "./auth/jwt.guard";
 import { EmailService } from "./email/email.service";
@@ -33,21 +33,79 @@ import { SubmitAssignmentDto } from "./dtos/submit-assignment.dto";
 export class AppController {
   constructor(
     private readonly userService: UserService,
-    private readonly aiService: AiService,
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly messageService: MessageService,
   ) {}
 
+  private readonly teacherAllocations = new Map<
+   number,
+   {
+     classTeacherOf?: string;
+     subjectAllocations: Array<{ id: number; className: string; subject: string }>;
+   }
+  >();
+
+  private readonly eventFeed: Array<{
+   id: number;
+   title: string;
+   date: string;
+   description: string;
+   type: string;
+  }> = [
+   {
+     id: 1,
+     title: "Welcome Back!",
+     date: new Date().toISOString(),
+     description: "School reopened for the new academic session.",
+     type: "event",
+   },
+  ];
+
+  private readonly timetables = new Map<
+   string,
+   Array<{ day: string; startTime: string; endTime: string; subject: string }>
+  >();
+
+  private getTeacherAllocation(teacherId: number) {
+   const existing = this.teacherAllocations.get(teacherId);
+   if (existing) {
+     return existing;
+   }
+
+   const allocation: {
+     classTeacherOf?: string;
+     subjectAllocations: Array<{ id: number; className: string; subject: string }>;
+   } = {
+     classTeacherOf: undefined,
+     subjectAllocations: [] as Array<{ id: number; className: string; subject: string }> ,
+   };
+   this.teacherAllocations.set(teacherId, allocation);
+   return allocation;
+  }
+
   private setAuthCookie(res: Response, token: string) {
-    res.cookie("nexusedu_auth", token, {
+    // For mobile apps and cross-platform clients (iOS/Android/Windows) it's safer to
+    // optionally set SameSite=None and secure cookies when CROSS_PLATFORM=true so
+    // embedded webviews or native fetches that rely on cookies work correctly.
+    const crossPlatform = process.env.CROSS_PLATFORM === "true";
+    const cookieOptions: any = {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
       path: "/",
-    });
+    };
+
+    if (crossPlatform) {
+      // Requires secure context (HTTPS) in production environments
+      cookieOptions.sameSite = "none";
+      cookieOptions.secure = true;
+    } else {
+      cookieOptions.sameSite = "lax";
+      cookieOptions.secure = process.env.NODE_ENV === "production";
+    }
+
+    res.cookie("nexusedu_auth", token, cookieOptions);
   }
 
   // ==========================================
@@ -94,6 +152,7 @@ export class AppController {
 
     return {
       user,
+      token,
       expiresIn: "24h",
     };
   }
@@ -104,11 +163,23 @@ export class AppController {
     @Body() body: CreateUserDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Server-side validation for privileged roles using secret codes.
+    // Admin and Teacher codes are configured via environment variables.
     if (body.role === "admin") {
       const expectedSecret = process.env.ADMIN_SECRET_CODE || "ADMIN2026";
       if (body.secretCode !== expectedSecret) {
         throw new HttpException(
           "Invalid admin secret code",
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
+    if (body.role === "teacher") {
+      const expectedTeacherSecret = process.env.TEACHER_SECRET_CODE || "TEACHER2026";
+      if (body.secretCode !== expectedTeacherSecret) {
+        throw new HttpException(
+          "Invalid teacher secret code",
           HttpStatus.FORBIDDEN,
         );
       }
@@ -128,6 +199,7 @@ export class AppController {
 
     return {
       user,
+      token,
       expiresIn: "24h",
     };
   }
@@ -159,6 +231,212 @@ export class AppController {
     return { message: "Logged out successfully" };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get("teacher/:id/students")
+  async getTeacherStudents(@Param("id") id: string) {
+    const teacherId = Number(id);
+    const teacher = await this.prisma.user.findUnique({
+      where: { id: teacherId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        branch: true,
+      },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException("Teacher not found");
+    }
+
+    const students = await this.prisma.user.findMany({
+      where: { role: "student" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        branch: true,
+        rollNumber: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const allocation = this.getTeacherAllocation(teacherId);
+    const branches = Array.from(
+      new Set(students.map((student) => student.branch || "General").filter(Boolean)),
+    );
+
+    return {
+      teacher,
+      students,
+      dashboardOptions: branches.map((branch, index) => ({
+        id: `${branch}-${index}`,
+        label: branch,
+        className: branch,
+        subject: index % 2 === 0 ? "Mathematics" : "Science",
+        role: allocation.classTeacherOf === branch ? "class_teacher" : "subject_teacher",
+      })),
+      classTeacherOf: allocation.classTeacherOf || null,
+      subjectAllocations: allocation.subjectAllocations,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("admin/result-list")
+  async getAdminResults(@Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    const results = (await this.prisma.examResult.findMany({
+      orderBy: { date: "desc" },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            branch: true,
+            email: true,
+          },
+        },
+      },
+    })) as Array<any>;
+
+    return results.map((result) => ({
+      ...result,
+      student: result.student
+        ? {
+            id: result.student.id,
+            name: result.student.name,
+            branch: result.student.branch || "General",
+            email: result.student.email,
+          }
+        : null,
+    }));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("events")
+  getEvents() {
+    return this.eventFeed;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("admin/event")
+  createEvent(@Body() body: { title: string; date: string; type: string; description?: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    const event = {
+      id: this.eventFeed.length + 1,
+      title: body.title,
+      date: body.date,
+      description: body.description || "",
+      type: body.type || "event",
+    };
+
+    this.eventFeed.unshift(event);
+    return event;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("timetable/class/:className")
+  getClassTimetable(@Param("className") className: string) {
+    return this.timetables.get(className) || [];
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("admin/timetable")
+  saveClassTimetable(
+    @Body()
+    body: {
+      className: string;
+      day?: string;
+      startTime?: string;
+      endTime?: string;
+      subject?: string;
+      timetable?: Array<{ day: string; startTime: string; endTime: string; subject: string }>;
+    },
+    @Req() req: any,
+  ) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    if (body.timetable) {
+      this.timetables.set(body.className, body.timetable);
+      return { className: body.className, timetable: body.timetable };
+    }
+
+    const existing = this.timetables.get(body.className) || [];
+    const filtered = existing.filter(
+      (slot) => !(slot.day === body.day && slot.startTime === body.startTime),
+    );
+
+    if (body.subject) {
+      filtered.push({
+        day: body.day!,
+        startTime: body.startTime!,
+        endTime: body.endTime || body.startTime!,
+        subject: body.subject,
+      });
+    }
+
+    this.timetables.set(body.className, filtered);
+    return { className: body.className, timetable: filtered };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("admin/assign-class-teacher")
+  assignClassTeacher(@Body() body: { teacherId: number; className: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    const allocation = this.getTeacherAllocation(body.teacherId);
+    allocation.classTeacherOf = body.className;
+    this.teacherAllocations.set(body.teacherId, allocation);
+    return allocation;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("admin/assign-subject")
+  assignSubject(@Body() body: { teacherId: number; className: string; subject: string }, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    const allocation = this.getTeacherAllocation(body.teacherId);
+    const existing = allocation.subjectAllocations.find(
+      (entry) => entry.className === body.className && entry.subject === body.subject,
+    );
+
+    if (!existing) {
+      allocation.subjectAllocations.push({
+        id: Date.now(),
+        className: body.className,
+        subject: body.subject,
+      });
+    }
+
+    this.teacherAllocations.set(body.teacherId, allocation);
+    return allocation;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete("admin/subject/:id")
+  removeSubject(@Param("id") id: string, @Req() req: any) {
+    if (req.user.role !== "admin") {
+      throw new HttpException("Unauthorized", HttpStatus.FORBIDDEN);
+    }
+    const subjectId = Number(id);
+    for (const allocation of this.teacherAllocations.values()) {
+      const remaining = allocation.subjectAllocations.filter((entry) => entry.id !== subjectId);
+      if (remaining.length !== allocation.subjectAllocations.length) {
+        allocation.subjectAllocations = remaining;
+        return { success: true };
+      }
+    }
+    return { success: false };
+  }
+
   // ==========================================
   // PROTECTED ROUTES (Require JWT)
   // ==========================================
@@ -175,13 +453,7 @@ export class AppController {
     return await this.userService.getClassList();
   }
 
-  // 5. AI CHAT
-  @Post("chat")
-  async handleChat(@Body() body: { message: string; role?: string }) {
-    return await this.aiService.chat(body.message, body.role);
-  }
-
-  // 6. SAVE ATTENDANCE
+  // 5. SAVE ATTENDANCE
   @Post("attendance")
   async markAttendance(
     @Body() body: { studentId: number; status: string; date: string },
@@ -232,7 +504,26 @@ export class AppController {
   // 10. LIST ALL USERS
   @Get("admin/users")
   async getAllUsers() {
-    return await this.userService.getAllUsers();
+    const users = await this.prisma.user.findMany({
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        branch: true,
+        rollNumber: true,
+      },
+    });
+
+    return users.map((user) => {
+      const allocation = user.role === "teacher" ? this.getTeacherAllocation(user.id) : undefined;
+      return {
+        ...user,
+        classTeacherOf: allocation?.classTeacherOf || null,
+        subjectAllocations: allocation?.subjectAllocations || [],
+      };
+    });
   }
 
   // 11. DELETE USER

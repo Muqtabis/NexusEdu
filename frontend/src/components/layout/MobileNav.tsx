@@ -1,11 +1,10 @@
-import { Home, Sparkles, User, Calendar } from 'lucide-react';
+import { Home, User, Calendar } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Calendar, label: 'Schedule', path: '/schedule' },
-  { icon: Sparkles, label: 'AI Agent', path: '/agents' }, 
   { icon: User, label: 'Profile', path: '/profile' },
 ];
 
