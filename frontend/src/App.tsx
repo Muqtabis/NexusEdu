@@ -9,7 +9,6 @@ import Profile from './pages/Profile';
 import StudentDashboard from './pages/dashboard/StudentDashboard';
 import TeacherDashboard from './pages/dashboard/TeacherDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
-import AgentChat from './pages/agents/AgentChat';
 import SchoolEvents from './pages/dashboard/SchoolEvents';
 import TeacherBuilder from './pages/dashboard/TeacherBuilder'; // <-- Added LMS Builder
 import CoursePlayer from './pages/CoursePlayer'; // <-- Added Course Player
@@ -76,12 +75,6 @@ function App() {
           </ProtectedRoute>
         } />
         
-        <Route path="/agents" element={
-          <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
-            <LayoutWrapper><AgentChat /></LayoutWrapper>
-          </ProtectedRoute>
-        } />
-
         <Route path="/schedule" element={
           <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
             <LayoutWrapper><SchoolEvents /></LayoutWrapper>

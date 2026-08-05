@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -62,7 +62,7 @@ model ExamResult {
 model Course {
   id           String       @id @default(uuid())
   title        String
-  description  String       @db.Text
+  description  String
   instructorId String       @default("Teacher123")
   thumbnail    String       @default("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600")
   createdAt    DateTime     @default(now())
